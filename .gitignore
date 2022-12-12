@@ -1,0 +1,5 @@
+test_source
+test_destination
+venv
+src/__pycache__/
+.idea/
