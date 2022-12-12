@@ -151,15 +151,17 @@ def error(msg: str):
     exit(1)
 
 
-def file_ok(path: pathlib.Path, read=True):
+def file_ok(path: pathlib.Path, source=True):
     if not path.exists():
         error(f"File {path} does not exist")
-    if not path.is_file():
-        error(f"Path {path} does not point to a file")
-    if read:
+    if source:
+        if not path.is_file():
+            error(f"Path {path} does not point to a file")
         if not access(path, R_OK):
             error(f"File {path} is not readable")
     else:
+        if not path.is_dir():
+            error(f"Path {path} does not point to a file")
         if not access(path, W_OK):
             error(f"File {path} is not writable")
 
