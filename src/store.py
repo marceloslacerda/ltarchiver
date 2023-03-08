@@ -45,11 +45,6 @@ def main():
     record.write(f"Checksum: {md5}\n")
     destination_file_path = destination / source_file_name
     shutil.copyfile(source, destination_file_path)
-    # this is probably pointless cause most archiving formats (zip, tar etc) do some form o checksumming
-    #  new_md5 = get_file_checksum(destination_file_path)
-    #  if new_md5 != md5:
-    #      error("The checksum of the source and destination differ. Please retry or test the device for errors.")
-    #   os.sync()
     ecc_dir = bkp_dir / ecc_dir_name
     ecc_dir.mkdir(parents=True, exist_ok=True)
     ecc_file_path = ecc_dir / md5
@@ -59,7 +54,7 @@ def main():
     rsc = reedsolo.RSCodec(eccsize)
     source_file = source.open("rb")
     while True:
-        ba = source_file.read(64)
+        ba = source_file.read(chunksize)
         if len(ba) == 0:
             break
         out = rsc.encode(ba)[-eccsize:]

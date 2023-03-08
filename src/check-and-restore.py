@@ -5,6 +5,26 @@ import reedsolo
 from common import *
 
 
+def restore_archive(backup_metadata_dir, backup_file_path, destination_path, record):
+    backup_file = backup_file_path.open('rb')
+    destination_file = open(destination_path, 'wb')
+    rsc = reedsolo.RSCodec(record["eccsize"])
+    ecc_file = ((backup_metadata_dir / "ecc") / record["checksum"]).open("rb")
+    try:
+        while True:
+            ba = backup_file.read(record["chunksize"])
+            if len(ba) == 0:
+                break
+            ecc = ecc_file.read(eccsize)
+            out = rsc.decode(ba + ecc)
+            destination_file.write(out)
+    except reedsolo.ReedSolomonError:
+        error("Too many errors found in a chunk of the file. Aborting.")
+    print(f"File restored successfully to {destination_path}. Copying back into the backup location.")
+    shutil.copyfile(destination_path, backup_file_path)
+    print("All done! Goodbye.")
+
+
 def main():
     if len(sys.argv) != 3:
         error(f"usage: {sys.argv[0]} <backup> <destination>")
@@ -66,10 +86,8 @@ def main():
         shutil.copyfile(backup_file_path, sys.argv[2])
         print("File was successfully copied. Goodbye.")
     else:
-        # if not valid, attempt to repair
-        #   if cant be repaired, warn user
-        # show restored file path to user and return with success
-        raise NotImplementedError()
+        print("Checksum doesn't match. Attempting to restore the file onto destination.")
+        restore_archive(backup_dir, backup_file_path, sys.argv[2], record)
 
 
 def try_copy_recordbook(source, destination):
