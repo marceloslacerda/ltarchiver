@@ -1,53 +1,18 @@
 import os
-import pathlib
-from os import access, R_OK, W_OK
+import shutil
+from datetime import datetime
+from subprocess import check_output, check_call
 
 import reedsolo
 
 from common import *
-from subprocess import check_output, check_call
-from datetime import datetime
-
-import shlex
-import subprocess
-import sys
-import shutil
-
-
-def check_recordbook(path: pathlib.Path):
-    if not path.exists() or path.stat().st_size == 0:
-        return
-    if check_call(f"md5sum -c {path}"):
-        error(f"The checksum of the file {path} doesn't match what's stored. Please validate it and retry.")
-
-
-def sync_recordbooks(bkp_dir: pathlib.Path):
-    check_recordbook(recordbook_path)
-    bkp_dir.mkdir(exist_ok=True)
-    dest_recordbook_path = bkp_dir / recordbook_file_name
-    if not recordbook_path.exists() and not dest_recordbook_path.exists():
-        return
-    elif not recordbook_path.exists() and dest_recordbook_path.exists():
-        error("A record book exists on destination but not on origin")
-    elif not dest_recordbook_path.exists():
-        shutil.copy(recordbook_path, dest_recordbook_path)
-    else:
-        check_recordbook(dest_recordbook_path)
-        dest_size = dest_recordbook_path.stat().st_size
-        source_size = recordbook_path.stat().st_size
-        if dest_size < source_size:
-            shutil.copy(recordbook_path, dest_recordbook_path)
-        elif dest_size > source_size:
-            shutil.copy(dest_recordbook_path, recordbook_path)
 
 
 def main():
     if len(sys.argv) != 3:
         error(f"usage: {sys.argv[0]} <source> <destination>")
-        exit(1)
-
     recordbook_dir.mkdir(parents=True, exist_ok=True)
-    record = RECORD_PATH.open('wt')
+    record = RECORD_PATH.open("wt")
     source = pathlib.Path(sys.argv[1]).absolute()
     destination = pathlib.Path(sys.argv[2]).absolute()
     bkp_dir = destination / "ltarchiver"
@@ -63,20 +28,22 @@ def main():
     record.write("Item\n")
     record.write("Version: 1\n")
     record.write("Deleted: false\n")
+    source_file_name = source.name
+    record.write(f"File-Name: {source_file_name}\n")
     record.write(f"Source: {source}\n")
     record.write(f"Destination: {blkid}\n")
-    record.write(f"Bytes per chunk: {chunksize}\n")
-    record.write(f"EC bytes per chunk: {eccsize}\n")
+    record.write(f"Bytes-per-chunk: {chunksize}\n")
+    record.write(f"EC-bytes-per-chunk: {eccsize}\n")
     record.write(f"Timestamp: {datetime.now().isoformat()}\n")
     md5 = ""
     try:
         md5 = get_file_checksum(source)
     except subprocess.SubprocessError as err:
         error(f"Error calculating the md5 of source: {err}")
-    file_not_exists(md5)
-    record.write(f"Checksum Algorithm: md5\n")
+    file_not_exists(md5, source_file_name)
+    record.write(f"Checksum-Algorithm: md5\n")
     record.write(f"Checksum: {md5}\n")
-    destination_file_path = destination / source.name
+    destination_file_path = destination / source_file_name
     shutil.copyfile(source, destination_file_path)
     # this is probably pointless cause most archiving formats (zip, tar etc) do some form o checksumming
     #  new_md5 = get_file_checksum(destination_file_path)
@@ -111,7 +78,9 @@ def main():
     recordbook.close()
     shutil.copy(recordbook_path, bkp_dir)
     recordbook_checksum_file = recordbook_checksum_file_path.open("wt")
-    check_call(shlex.split(f"md5sum {recordbook_path}"), stdout=recordbook_checksum_file)
+    check_call(
+        shlex.split(f"md5sum {recordbook_path}"), stdout=recordbook_checksum_file
+    )
     recordbook_checksum_file.close()
     shutil.copy(recordbook_checksum_file_path, bkp_dir)
     os.sync()
@@ -119,18 +88,18 @@ def main():
 
 
 def get_device_uuid(destination):
-    fs = check_output(shlex.split(f"df --output=source {destination}"), encoding="utf-8").split("\n")[1].strip()
+    fs = (
+        check_output(shlex.split(f"df --output=source {destination}"), encoding="utf-8")
+        .split("\n")[1]
+        .strip()
+    )
     for p in pathlib.Path("/dev/disk/by-uuid/").iterdir():
         if pathlib.Path(fs) == (pathlib.Path("/dev") / p.readlink().name):
             return p.name
     raise Exception(f"UUID not found for {destination}")
 
 
-def get_file_checksum(source: pathlib.Path):
-    return subprocess.check_output(shlex.split(f"md5sum {source}"), encoding="utf-8").split()[0]
-
-
-def file_not_exists(md5: str):
+def file_not_exists(md5: str, file_name: str):
     if not recordbook_path.exists():
         return
     recordbook = recordbook_path.open("r")
@@ -141,7 +110,7 @@ def file_not_exists(md5: str):
     for line in recordbook:
         line = line.strip()
         count += 1
-        parts = line.split()
+        parts = line.split(" ")
         if parts[0] == "Item":
             deleted = False
         if parts[0] == "Deleted:":
@@ -151,28 +120,41 @@ def file_not_exists(md5: str):
         if parts[0] == "Destination:":
             destination = line
         if parts[0] == "Checksum:" and parts[1] == md5 and not deleted:
-            error(f"File was already stored in the record book\n{line}\n{source}\n{destination}")
+            error(
+                f"File was already stored in the record book\n{line=}\n{source=}\n{destination=}"
+            )
+        if parts[0] == "File-Name:" and parts[1] == file_name:
+            error(f"Another file was already stored with that name\n{line=}\n{source=}\n{destination=}\nFile Name: {parts[1]}")
 
 
-def error(msg: str):
-    print(msg, file=sys.stderr)
-    exit(1)
+def check_recordbook(path: pathlib.Path):
+    if not path.exists() or path.stat().st_size == 0:
+        return
+    if check_call(f"md5sum -c {path}"):
+        error(
+            f"The checksum of the file {path} doesn't match what's stored. Please validate it and retry."
+        )
 
 
-def file_ok(path: pathlib.Path, source=True):
-    if not path.exists():
-        error(f"File {path} does not exist")
-    if source:
-        if not path.is_file():
-            error(f"Path {path} does not point to a file")
-        if not access(path, R_OK):
-            error(f"File {path} is not readable")
+def sync_recordbooks(bkp_dir: pathlib.Path):
+    check_recordbook(recordbook_checksum_file_path)
+    bkp_dir.mkdir(exist_ok=True)
+    dest_recordbook_path = bkp_dir / recordbook_file_name
+    if not recordbook_path.exists() and not dest_recordbook_path.exists():
+        return
+    elif not recordbook_path.exists() and dest_recordbook_path.exists():
+        error("A record book exists on destination but not on origin")
+    elif not dest_recordbook_path.exists():
+        shutil.copy(recordbook_path, dest_recordbook_path)
     else:
-        if not path.is_dir():
-            error(f"Path {path} does not point to a file")
-        if not access(path, W_OK):
-            error(f"File {path} is not writable")
+        check_recordbook(bkp_dir / "checksum.txt")
+        dest_size = dest_recordbook_path.stat().st_size
+        source_size = recordbook_path.stat().st_size
+        if dest_size < source_size:
+            shutil.copy(recordbook_path, dest_recordbook_path)
+        elif dest_size > source_size:
+            shutil.copy(dest_recordbook_path, recordbook_path)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
