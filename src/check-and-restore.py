@@ -119,50 +119,6 @@ def try_copy_recordbook(source, destination):
                 pass
 
 
-def get_records(recordbook_path: pathlib.Path) -> [dict]:
-    recordbook = recordbook_path.open("r")
-    source = None
-    destination = None
-    file_name = None
-    deleted = None
-    version = None
-    chunksize = None
-    eccsize = None
-    timestamp = None
-    checksum = None
-    checksum_alg = None
-    first_item = True
-    for line in recordbook:
-        line = line.strip()
-        parts = line.split(" ")
-        if parts[0] == "Item":
-            if first_item:
-                first_item = False
-            else:
-                yield {
-                    "source": source,
-                    "destination": destination,
-                    "file_name": file_name,
-                    "deleted": deleted,
-                    "version": version,
-                    "chunksize": chunksize,
-                    "eccsize": eccsize,
-                    "timestamp": timestamp,
-                    "checksum": checksum,
-                    "checksum_alg": checksum_alg
-                }
-        if parts[0] == "Deleted:":
-            deleted = parts[1] == "true"
-        if parts[0] == "Source:":
-            source = parts[1]
-        if parts[0] == "Destination:":
-            destination = parts[1]
-        if parts[0] == "Checksum:":
-            checksum = parts[1]
-        if parts[0] == "File-Name:":
-            file_name = parts[1]
-
-
 def record_of_file(recordbook_path: pathlib.Path, backup_file_checksum: str):
     for record in get_records(recordbook_path):
         if record["deleted"] and (

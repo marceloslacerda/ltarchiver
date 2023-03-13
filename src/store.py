@@ -1,7 +1,7 @@
 import os
 import shutil
 from datetime import datetime
-from subprocess import check_output, check_call
+import subprocess
 
 import reedsolo
 
@@ -73,18 +73,19 @@ def main():
     recordbook.close()
     shutil.copy(recordbook_path, bkp_dir)
     recordbook_checksum_file = recordbook_checksum_file_path.open("wt")
-    check_call(
-        shlex.split(f"md5sum {recordbook_path}"), stdout=recordbook_checksum_file
+    out = subprocess.check_output(
+        shlex.split(f"md5sum {recordbook_path}"), encoding='utf-8'
     )
+    recordbook_checksum_file.write(out)
     recordbook_checksum_file.close()
-    shutil.copy(recordbook_checksum_file_path, bkp_dir)
+    pathlib.Path(bkp_dir / "checksum.txt").write_text(out.split(' ', 1)[0] + ' ' + str(bkp_dir / "recordbook.txt"))
     os.sync()
     print("All done")
 
 
 def get_device_uuid(destination):
     fs = (
-        check_output(shlex.split(f"df --output=source {destination}"), encoding="utf-8")
+        subprocess.check_output(shlex.split(f"df --output=source {destination}"), encoding="utf-8")
         .split("\n")[1]
         .strip()
     )
@@ -97,41 +98,27 @@ def get_device_uuid(destination):
 def file_not_exists(md5: str, file_name: str):
     if not recordbook_path.exists():
         return
-    recordbook = recordbook_path.open("r")
-    count = 0
-    source = ""
-    destination = ""
-    deleted = False
-    for line in recordbook:
-        line = line.strip()
-        count += 1
-        parts = line.split(" ")
-        if parts[0] == "Item":
-            deleted = False
-        if parts[0] == "Deleted:":
-            deleted = parts[1] == "true"
-        if parts[0] == "Source:":
-            source = line
-        if parts[0] == "Destination:":
-            destination = line
-        if parts[0] == "Checksum:" and parts[1] == md5 and not deleted:
+    for record in get_records(recordbook_path):
+        if record["checksum"] == md5 and not record["deleted"]:
             error(
-                f"File was already stored in the record book\n{line=}\n{source=}\n{destination=}"
+                f"File was already stored in the record book\n{record['source']=}\n{record['destination']=}"
             )
-        if parts[0] == "File-Name:" and parts[1] == file_name:
-            error(f"Another file was already stored with that name\n{line=}\n{source=}\n{destination=}\nFile Name: {parts[1]}")
+        if record["file_name"] == file_name and not record["deleted"]:
+            error(f"Another file was already stored with that name{record['source']=}\n{record['destination']=}\n{record['file_name']=}")
 
 
 def check_recordbook(path: pathlib.Path):
     if not path.exists() or path.stat().st_size == 0:
         return
-    if check_call(f"md5sum -c {path}"):
+    if subprocess.check_call(shlex.split(f"md5sum -c {path}")):
         error(
             f"The checksum of the file {path} doesn't match what's stored. Please validate it and retry."
         )
 
 
 def sync_recordbooks(bkp_dir: pathlib.Path):
+    if not (bkp_dir / "checksum.txt").exists():
+        return
     check_recordbook(recordbook_checksum_file_path)
     bkp_dir.mkdir(exist_ok=True)
     dest_recordbook_path = bkp_dir / recordbook_file_name

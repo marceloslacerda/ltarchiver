@@ -38,3 +38,59 @@ def file_ok(path: pathlib.Path, source=True):
             error(f"Path {path} does not point to a file")
         if not access(path, W_OK):
             error(f"File {path} is not writable")
+
+
+def get_records(recordbook_path: pathlib.Path) -> [dict]:
+    recordbook = recordbook_path.open("r")
+    source = None
+    destination = None
+    file_name = None
+    deleted = None
+    version = None
+    chunksize = None
+    eccsize = None
+    timestamp = None
+    checksum = None
+    checksum_alg = None
+    first_item = True
+    for line in recordbook:
+        line = line.strip()
+        parts = line.split(" ")
+        if parts[0] == "Item":
+            if first_item:
+                first_item = False
+            else:
+                yield {
+                    "source": source,
+                    "destination": destination,
+                    "file_name": file_name,
+                    "deleted": deleted,
+                    "version": version,
+                    "chunksize": chunksize,
+                    "eccsize": eccsize,
+                    "timestamp": timestamp,
+                    "checksum": checksum,
+                    "checksum_alg": checksum_alg
+                }
+        elif parts[0] == "Deleted:":
+            deleted = parts[1] == "true"
+        elif parts[0] == "Source:":
+            source = parts[1]
+        elif parts[0] == "Destination:":
+            destination = parts[1]
+        elif parts[0] == "Checksum:":
+            checksum = parts[1]
+        elif parts[0] == "File-Name:":
+            file_name = parts[1]
+    yield {
+        "source": source,
+        "destination": destination,
+        "file_name": file_name,
+        "deleted": deleted,
+        "version": version,
+        "chunksize": chunksize,
+        "eccsize": eccsize,
+        "timestamp": timestamp,
+        "checksum": checksum,
+        "checksum_alg": checksum_alg
+    }
