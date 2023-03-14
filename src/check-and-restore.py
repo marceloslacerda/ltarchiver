@@ -1,3 +1,4 @@
+import pathlib
 import shutil
 
 import reedsolo
@@ -45,10 +46,10 @@ def main():
         backup_record_is_valid = subprocess.call(shlex.split(f"md5sum -c {backup_checksum_file}")) == 0
     backup_file_checksum = get_file_checksum(backup_file_path)
     # check if file is in either record
-    local_record = record_of_file(recordbook_path, backup_file_checksum)
+    local_record = record_of_file(recordbook_path, backup_file_checksum, backup_file_path)
     record_in_local = local_record is not None
     recordbook_backup_path = backup_dir / recordbook_file_name
-    backup_record = record_of_file(recordbook_backup_path, backup_file_checksum)
+    backup_record = record_of_file(recordbook_backup_path, backup_file_checksum, backup_file_path)
     record_in_backup = backup_record is not None
 
     if record_in_local:
@@ -80,10 +81,10 @@ def main():
         else:
             error(f"Neither {backup_file_path.name} or its checksum was found in the recordbooks")
 
-    backup_md5 = subprocess.check_output(shlex.split(f"md5sum -c {backup_file_path}"), encoding="utf-8")
+    backup_md5 = get_file_checksum(backup_file_path)
     if backup_md5 == record["checksum"]:
         print("No errors detected on the file. Beginning copy.")
-        shutil.copyfile(backup_file_path, sys.argv[2])
+        shutil.copyfile(backup_file_path, pathlib.Path(sys.argv[2]) / backup_file_path.name)
         print("File was successfully copied. Goodbye.")
     else:
         print("Checksum doesn't match. Attempting to restore the file onto destination.")
@@ -119,10 +120,10 @@ def try_copy_recordbook(source, destination):
                 pass
 
 
-def record_of_file(recordbook_path: pathlib.Path, backup_file_checksum: str):
+def record_of_file(recordbook_path: pathlib.Path, backup_file_checksum: str, backup_file_path: pathlib.Path):
     for record in get_records(recordbook_path):
-        if record["deleted"] and (
-                record["checksum"] == backup_file_checksum or record["file_name"] == recordbook_path.name):
+        if not record["deleted"] and (
+                record["checksum"] == backup_file_checksum or record["file_name"] == backup_file_path.name):
             return record
 
 
