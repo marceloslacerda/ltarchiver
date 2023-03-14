@@ -1,3 +1,4 @@
+import os
 import pathlib
 import shutil
 
@@ -10,19 +11,26 @@ def restore_archive(backup_metadata_dir, backup_file_path, destination_path, rec
     backup_file = backup_file_path.open('rb')
     destination_file = open(destination_path, 'wb')
     rsc = reedsolo.RSCodec(record["eccsize"])
+    rsc.maxerrata(verbose=True)
     ecc_file = ((backup_metadata_dir / "ecc") / record["checksum"]).open("rb")
+    chunksize_ = record["chunksize"]
+    eccsize_ = record["eccsize"]
     try:
         while True:
-            ba = backup_file.read(record["chunksize"])
+            ba = backup_file.read(chunksize_)
             if len(ba) == 0:
                 break
-            ecc = ecc_file.read(eccsize)
+            ecc = ecc_file.read(eccsize_)
             out = rsc.decode(ba + ecc)
-            destination_file.write(out)
+            destination_file.write(out[0])
     except reedsolo.ReedSolomonError:
         error("Too many errors found in a chunk of the file. Aborting.")
     print(f"File restored successfully to {destination_path}. Copying back into the backup location.")
+    backup_file.close()
+    destination_file.close()
+    os.sync()
     shutil.copyfile(destination_path, backup_file_path)
+    os.sync()
     print("All done! Goodbye.")
 
 
@@ -82,13 +90,17 @@ def main():
             error(f"Neither {backup_file_path.name} or its checksum was found in the recordbooks")
 
     backup_md5 = get_file_checksum(backup_file_path)
+    if pathlib.Path(sys.argv[2]).is_dir():
+        destination_path = pathlib.Path(sys.argv[2]) / backup_file_path.name
+    else:
+        destination_path = sys.argv[2]
     if backup_md5 == record["checksum"]:
         print("No errors detected on the file. Beginning copy.")
-        shutil.copyfile(backup_file_path, pathlib.Path(sys.argv[2]) / backup_file_path.name)
+        shutil.copyfile(backup_file_path, destination_path)
         print("File was successfully copied. Goodbye.")
     else:
         print("Checksum doesn't match. Attempting to restore the file onto destination.")
-        restore_archive(backup_dir, backup_file_path, sys.argv[2], record)
+        restore_archive(backup_dir, backup_file_path, destination_path, record)
 
 
 def try_copy_recordbook(source, destination):

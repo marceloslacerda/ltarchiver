@@ -1,3 +1,4 @@
+import datetime
 import pathlib
 import shlex
 import subprocess
@@ -47,8 +48,8 @@ def get_records(recordbook_path: pathlib.Path) -> [dict]:
     file_name = None
     deleted = None
     version = None
-    chunksize = None
-    eccsize = None
+    chunksize_ = None
+    eccsize_ = None
     timestamp = None
     checksum = None
     checksum_alg = None
@@ -66,8 +67,8 @@ def get_records(recordbook_path: pathlib.Path) -> [dict]:
                     "file_name": file_name,
                     "deleted": deleted,
                     "version": version,
-                    "chunksize": chunksize,
-                    "eccsize": eccsize,
+                    "chunksize": chunksize_,
+                    "eccsize": eccsize_,
                     "timestamp": timestamp,
                     "checksum": checksum,
                     "checksum_alg": checksum_alg
@@ -82,14 +83,25 @@ def get_records(recordbook_path: pathlib.Path) -> [dict]:
             checksum = parts[1]
         elif parts[0] == "File-Name:":
             file_name = parts[1]
+        elif parts[0] == "Bytes-per-chunk:":
+            chunksize_ = int(parts[1])
+        elif parts[0] == "EC-bytes-per-chunk:":
+            eccsize_ = int(parts[1])
+        elif parts[0] == "Timestamp:":
+            timestamp = datetime.datetime.fromisoformat(parts[1])
+        elif parts[0] == "Checksum-Algorithm:":
+            checksum_alg = parts[1]
+        elif parts[0] == "Version:":
+            version = int(parts[1])
+
     yield {
         "source": source,
         "destination": destination,
         "file_name": file_name,
         "deleted": deleted,
         "version": version,
-        "chunksize": chunksize,
-        "eccsize": eccsize,
+        "chunksize": chunksize_,
+        "eccsize": eccsize_,
         "timestamp": timestamp,
         "checksum": checksum,
         "checksum_alg": checksum_alg
