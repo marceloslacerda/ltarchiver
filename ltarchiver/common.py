@@ -98,16 +98,19 @@ def get_records(recordbook_path: pathlib.Path) -> [dict]:
             checksum_alg = parts[1]
         elif parts[0] == "Version:":
             version = int(parts[1])
-
-    yield {
-        "source": source,
-        "destination": destination,
-        "file_name": file_name,
-        "deleted": deleted,
-        "version": version,
-        "chunksize": chunksize_,
-        "eccsize": eccsize_,
-        "timestamp": timestamp,
-        "checksum": checksum,
-        "checksum_alg": checksum_alg
-    }
+    recordbook.close()
+    if first_item:
+        return []
+    else:
+        yield {
+            "source": source,
+            "destination": destination,
+            "file_name": file_name,
+            "deleted": deleted,
+            "version": version,
+            "chunksize": chunksize_,
+            "eccsize": eccsize_,
+            "timestamp": timestamp,
+            "checksum": checksum,
+            "checksum_alg": checksum_alg
+        }
