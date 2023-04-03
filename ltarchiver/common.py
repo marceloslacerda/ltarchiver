@@ -15,6 +15,11 @@ chunksize = 128  # bytes
 eccsize = 8  # bytes
 
 
+class LTAError(Exception):
+    def __init__(self, error_message):
+        self.args = (error_message,)
+
+
 def error(msg: str):
     print(msg, file=sys.stderr)
     exit(1)
@@ -28,17 +33,17 @@ def get_file_checksum(source: pathlib.Path):
 
 def file_ok(path: pathlib.Path, source=True):
     if not path.exists():
-        error(f"File {path} does not exist")
+        return LTAError(f"File {path} does not exist")
     if source:
         if not path.is_file():
-            error(f"Path {path} does not point to a file")
+            return LTAError(f"Path {path} does not point to a file")
         if not access(path, R_OK):
-            error(f"File {path} is not readable")
+            return LTAError(f"File {path} is not readable")
     else:
         if not path.is_dir():
-            error(f"Path {path} does not point to a file")
+            return LTAError(f"Path {path} does not point to a file")
         if not access(path, W_OK):
-            error(f"File {path} is not writable")
+            return LTAError(f"File {path} is not writable")
 
 
 def get_records(recordbook_path: pathlib.Path) -> [dict]:

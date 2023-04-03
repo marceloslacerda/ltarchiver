@@ -139,4 +139,7 @@ def sync_recordbooks(bkp_dir: pathlib.Path):
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except LTAError as err:
+        error(err.args[0])

@@ -1,5 +1,6 @@
-test_source
 test_destination
 venv
-src/__pycache__/
+*/__pycache__/
 .idea/
+restore_dir/
+test/test_source
