@@ -10,6 +10,21 @@ TEST_RECORD_FILE = pathlib.Path("test/test_record_file")
 TEST_DESTINATION_DIRECTORY = pathlib.Path("test/test_destination_dir")
 
 
+def write_test_recorbook(path: pathlib.Path=TEST_RECORD_FILE):
+    with open(path, "w") as f:
+        f.write("Item\n")
+        f.write("Version: 1\n")
+        f.write("Deleted: false\n")
+        f.write(f"File-Name: test_source\n")
+        f.write(f"Source: {TEST_SOURCE_FILE.absolute()}\n")
+        f.write(f"Destination: {TEST_DESTINATION_DIRECTORY.absolute()}\n")
+        f.write(f"Bytes-per-chunk: {common.chunksize}\n")
+        f.write(f"EC-bytes-per-chunk: {common.eccsize}\n")
+        f.write(f"Timestamp: {datetime.datetime.now().isoformat()}\n")
+        f.write(f"Checksum-Algorithm: md5\n")
+        f.write(f"Checksum: {TEST_FILE_CHECKSUM}\n")
+
+
 class MyTestCase(unittest.TestCase):
     def setUp(self) -> None:
         TEST_SOURCE_FILE.write_text("hello world")
@@ -41,18 +56,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(len(records), 0)
 
     def test_get_records(self):
-        with open(TEST_RECORD_FILE, "w") as f:
-            f.write("Item\n")
-            f.write("Version: 1\n")
-            f.write("Deleted: false\n")
-            f.write(f"File-Name: test_source\n")
-            f.write(f"Source: {TEST_SOURCE_FILE.absolute()}\n")
-            f.write(f"Destination: {TEST_DESTINATION_DIRECTORY.absolute()}\n")
-            f.write(f"Bytes-per-chunk: {common.chunksize}\n")
-            f.write(f"EC-bytes-per-chunk: {common.eccsize}\n")
-            f.write(f"Timestamp: {datetime.datetime.now().isoformat()}\n")
-            f.write(f"Checksum-Algorithm: md5\n")
-            f.write(f"Checksum: {TEST_FILE_CHECKSUM}\n")
+        write_test_recorbook()
         records = list(common.get_records(TEST_RECORD_FILE))
         self.assertEqual(len(records), 1)
         record = records[0]

@@ -1,11 +1,10 @@
 import os
 import shutil
-from datetime import datetime
-import subprocess
-
 import reedsolo
 
-from common import *
+from datetime import datetime
+
+from ltarchiver.common import *
 
 
 def main():
@@ -92,19 +91,19 @@ def get_device_uuid(destination):
     for p in pathlib.Path("/dev/disk/by-uuid/").iterdir():
         if pathlib.Path(fs) == (pathlib.Path("/dev") / p.readlink().name):
             return p.name
-    raise Exception(f"UUID not found for {destination}")
+    raise LTAError(f"UUID not found for {destination}")
 
 
 def file_not_exists(md5: str, file_name: str):
     if not recordbook_path.exists():
-        return
+        raise FileNotFoundError("The recordbook doesn't exist")
     for record in get_records(recordbook_path):
         if record["checksum"] == md5 and not record["deleted"]:
-            error(
+            raise LTAError(
                 f"File was already stored in the record book\n{record['source']=}\n{record['destination']=}"
             )
         if record["file_name"] == file_name and not record["deleted"]:
-            error(f"Another file was already stored with that name{record['source']=}\n{record['destination']=}\n{record['file_name']=}")
+            raise LTAError(f"Another file was already stored with that name{record['source']=}\n{record['destination']=}\n{record['file_name']=}")
 
 
 def check_recordbook(path: pathlib.Path):
