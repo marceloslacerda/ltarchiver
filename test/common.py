@@ -10,7 +10,14 @@ TEST_RECORD_FILE = pathlib.Path("test/test_record_file")
 TEST_DESTINATION_DIRECTORY = pathlib.Path("test/test_destination_dir")
 
 
-def write_test_recorbook(path: pathlib.Path=TEST_RECORD_FILE):
+def remove_file(path):
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+
+
+def write_test_recorbook(path: pathlib.Path = TEST_RECORD_FILE):
     with open(path, "w") as f:
         f.write("Item\n")
         f.write("Version: 1\n")

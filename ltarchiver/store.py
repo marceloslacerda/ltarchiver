@@ -1,5 +1,7 @@
 import os
 import shutil
+import subprocess
+
 import reedsolo
 
 from datetime import datetime
@@ -103,22 +105,25 @@ def file_not_exists(md5: str, file_name: str):
                 f"File was already stored in the record book\n{record['source']=}\n{record['destination']=}"
             )
         if record["file_name"] == file_name and not record["deleted"]:
-            raise LTAError(f"Another file was already stored with that name{record['source']=}\n{record['destination']=}\n{record['file_name']=}")
+            raise LTAError(
+                f"Another file was already stored with that name{record['source']=}\n{record['destination']=}\n{record['file_name']=}")
 
 
-def check_recordbook(path: pathlib.Path):
-    if not path.exists() or path.stat().st_size == 0:
-        return
-    if subprocess.check_call(shlex.split(f"md5sum -c {path}")):
-        error(
-            f"The checksum of the file {path} doesn't match what's stored. Please validate it and retry."
-        )
+def check_recordbook_md5(recordbook_checksum: pathlib.Path):
+    if not recordbook_checksum.exists() or recordbook_checksum.stat().st_size == 0:
+        raise FileNotFoundError(f"Recordbook checksum file {recordbook_checksum} not found or empty")
+    try:
+        subprocess.check_call(shlex.split(f"md5sum -c {recordbook_checksum}"))
+    except subprocess.CalledProcessError as err:
+        raise LTAError(
+            f"The recordbook checksum file {recordbook_checksum} doesn't match what's stored. Please validate it and retry."
+        ) from err
 
 
 def sync_recordbooks(bkp_dir: pathlib.Path):
     if not (bkp_dir / "checksum.txt").exists():
         return
-    check_recordbook(recordbook_checksum_file_path)
+    check_recordbook_md5(recordbook_checksum_file_path)
     bkp_dir.mkdir(exist_ok=True)
     dest_recordbook_path = bkp_dir / recordbook_file_name
     if not recordbook_path.exists() and not dest_recordbook_path.exists():
@@ -128,7 +133,7 @@ def sync_recordbooks(bkp_dir: pathlib.Path):
     elif not dest_recordbook_path.exists():
         shutil.copy(recordbook_path, dest_recordbook_path)
     else:
-        check_recordbook(bkp_dir / "checksum.txt")
+        check_recordbook_md5(bkp_dir / "checksum.txt")
         dest_size = dest_recordbook_path.stat().st_size
         source_size = recordbook_path.stat().st_size
         if dest_size < source_size:
