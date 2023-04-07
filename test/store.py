@@ -34,7 +34,7 @@ class MyTestCase(unittest.TestCase):
         )
         store.check_recordbook_md5(common.recordbook_checksum_file_path)
 
-    def test_check_recordbook_correct_md5(self):
+    def test_check_recordbook_incorrect_md5(self):
         write_test_recorbook(common.recordbook_path)
         common.recordbook_checksum_file_path.write_text("incorrect md5")
         self.assertRaises(common.LTAError, store.check_recordbook_md5, common.recordbook_checksum_file_path)
