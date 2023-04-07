@@ -1,6 +1,7 @@
 import datetime
 import pathlib
 import shlex
+import shutil
 import subprocess
 import sys
 from os import access, R_OK, W_OK
@@ -44,6 +45,26 @@ def file_ok(path: pathlib.Path, source=True):
             return LTAError(f"Path {path} does not point to a file")
         if not access(path, W_OK):
             return LTAError(f"File {path} is not writable")
+
+
+def decide_recordbooks(destination_recordbook_path: pathlib.Path):
+    subprocess.call(shlex.split(f"diff {recordbook_path} {destination_recordbook_path}"))
+    while True:
+        print("What should be done?")
+        print(f"1 - Overwrite the contents of {recordbook_path} with {destination_recordbook_path}")
+        print(f"2 - Overwrite the contents of {destination_recordbook_path} with {recordbook_path}")
+        print("3 - Abort")
+        s = input()
+        if s == "1":
+            shutil.copy(destination_recordbook_path, recordbook_path)
+        elif s == "2":
+            shutil.copy(recordbook_path, destination_recordbook_path)
+        elif s == "3":
+            raise LTAError("Aborted by the request of the user")
+        else:
+            print(f"{s} is not a number between 1 and 3")
+            continue
+        break
 
 
 def get_records(recordbook_path: pathlib.Path) -> [dict]:

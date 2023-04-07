@@ -39,6 +39,13 @@ class MyTestCase(unittest.TestCase):
         common.recordbook_checksum_file_path.write_text("incorrect md5")
         self.assertRaises(common.LTAError, store.check_recordbook_md5, common.recordbook_checksum_file_path)
 
+    def test_sync_recordbooks_no_file(self):
+        try:
+            os.rmdir("test_data")
+        except FileNotFoundError:
+            pass
+        os.mkdir("test_data")
+        self.assertRaises(FileNotFoundError, store.sync_recordbooks, pathlib.Path("test_data"))
 
 if __name__ == '__main__':
     unittest.main()

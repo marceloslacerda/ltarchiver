@@ -43,6 +43,45 @@ class MyTestCase(unittest.TestCase):
         except FileNotFoundError:
             pass
 
+    def test_decide_recordbooks_option_1(self):
+        output = "1"
+
+        def fake_input():
+            return output
+
+        common.input = fake_input
+        common.recordbook_path.write_text("text 1")
+        dest_recordbook = pathlib.Path("other_recordbook.txt")
+        dest_recordbook.write_text("text 2")
+        common.decide_recordbooks(dest_recordbook)
+        self.assertEqual(dest_recordbook.read_text(), "text 2")
+        common.input = input
+
+    def test_decide_recordbooks_option_2(self):
+        output = "2"
+
+        def fake_input():
+            return output
+
+        common.input = fake_input
+        common.recordbook_path.write_text("text 1")
+        dest_recordbook = pathlib.Path("other_recordbook.txt")
+        dest_recordbook.write_text("text 2")
+        common.decide_recordbooks(dest_recordbook)
+        self.assertEqual(common.recordbook_path.read_text(), "text 1")
+        common.input = input
+
+    def test_decide_recordbooks_option_3(self):
+        output = "3"
+
+        def fake_input():
+            return output
+
+        common.input = fake_input
+        common.recordbook_path.write_text("text 1")
+        self.assertRaises(common.LTAError, common.decide_recordbooks, TEST_RECORD_FILE)
+        common.input = input
+
     def test_get_file_checksum(self):
         self.assertEqual(
             TEST_FILE_CHECKSUM,
