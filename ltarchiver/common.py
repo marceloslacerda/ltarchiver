@@ -9,7 +9,10 @@ from os import access, R_OK, W_OK
 from dataclasses import dataclass
 
 recordbook_file_name = "recordbook.txt"
-recordbook_dir = pathlib.Path.home() / ".ltarchiver"
+if "DEBUG" in sys.argv:
+    recordbook_dir = pathlib.Path.home() / ".ltarchiver"
+else:
+    recordbook_dir = pathlib.Path("test_data") / ".ltarchiver"
 recordbook_path = recordbook_dir / recordbook_file_name
 recordbook_checksum_file_path = recordbook_dir / "checksum.txt"
 RECORD_PATH = recordbook_dir / "new_transaction.txt"
@@ -42,7 +45,7 @@ class TerminalMenu:
             print(self.title)
             option_count = 1
             for text in self.options.keys():
-                print(option_count, '-', text)
+                print(option_count, "-", text)
                 option_count += 1
             s = input()
             try:
@@ -56,6 +59,34 @@ class TerminalMenu:
             else:
                 callbacks[user_input - 1]()
                 break
+
+
+@dataclass
+class Record:
+    timestamp: datetime.datetime
+    source: pathlib.Path
+    destination: pathlib.Path
+    file_name: str
+    checksum: str
+    chunksize: int = chunksize
+    eccsize: int = eccsize
+    checksum_algorithm: str = "md5"
+    deleted: bool = False
+    version: int = 1
+
+    def write(self, recordbook: pathlib.Path = recordbook_path):
+        with recordbook.open("at") as f:
+            f.write("Item\n")
+            f.write(f"Version: {self.version}\n")
+            f.write(f"Deleted: {self.deleted}\n")
+            f.write(f"File-Name: {self.file_name}\n")
+            f.write(f"Source: {self.source.absolute()}\n")
+            f.write(f"Destination: {self.destination.absolute()}\n")
+            f.write(f"Bytes-per-chunk: {self.chunksize}\n")
+            f.write(f"EC-bytes-per-chunk: {self.eccsize}\n")
+            f.write(f"Timestamp: {datetime.datetime.now().isoformat()}\n")
+            f.write(f"Checksum-Algorithm: {self.checksum_algorithm}\n")
+            f.write(f"Checksum: {self.checksum}\n")
 
 
 def error(msg: str):
@@ -84,34 +115,52 @@ def file_ok(path: pathlib.Path, source=True):
             return LTAError(f"File {path} is not writable")
 
 
-def decide_recordbooks(destination_recordbook_path: pathlib.Path, destination_recordbook_checksum_path: pathlib.Path):
-    subprocess.call(shlex.split(f"diff {recordbook_path} {destination_recordbook_path}"))
+def copy_recordbook_from_to(
+        from_file: pathlib.Path,
+        from_checksum: pathlib.Path,
+        to_file: pathlib.Path,
+        to_checksum: pathlib.Path,
+):
+    def copy():
+        check_recordbook_md5(from_checksum)
+        shutil.copy(from_file, to_file)
+        shutil.copy(from_checksum, to_checksum)
 
-    def copy_from_to(from_file: pathlib.Path, from_checksum: pathlib.Path, to_file: pathlib.Path,
-                     to_checksum: pathlib.Path):
-        def copy():
-            shutil.copy(from_file, to_file)
-            shutil.copy(from_checksum, to_checksum)
+    return copy
 
-        return copy
 
+def decide_recordbooks(
+        destination_recordbook_path: pathlib.Path,
+        destination_recordbook_checksum_path: pathlib.Path,
+):
+    subprocess.call(
+        shlex.split(f"diff {recordbook_path} {destination_recordbook_path}")
+    )
     menu = TerminalMenu(
         "What should be done?",
         {
             f"Overwrite the contents of {recordbook_path} with {destination_recordbook_path}": (
-                copy_from_to(destination_recordbook_path, destination_recordbook_checksum_path, recordbook_path,
-                             recordbook_checksum_file_path)
-            )
-            ,
+                copy_recordbook_from_to(
+                    destination_recordbook_path,
+                    destination_recordbook_checksum_path,
+                    recordbook_path,
+                    recordbook_checksum_file_path,
+                )
+            ),
             f"Overwrite the contents of {destination_recordbook_path} with {recordbook_path}": (
-                copy_from_to(recordbook_path, recordbook_checksum_file_path, destination_recordbook_path,
-                             destination_recordbook_checksum_path))
-        }
+                copy_recordbook_from_to(
+                    recordbook_path,
+                    recordbook_checksum_file_path,
+                    destination_recordbook_path,
+                    destination_recordbook_checksum_path,
+                )
+            ),
+        },
     )
     menu.show()
 
 
-def get_records(recordbook_path: pathlib.Path) -> [dict]:
+def get_records(recordbook_path: pathlib.Path) -> [Record]:
     recordbook = recordbook_path.open("r")
     source = None
     destination = None
@@ -131,18 +180,17 @@ def get_records(recordbook_path: pathlib.Path) -> [dict]:
             if first_item:
                 first_item = False
             else:
-                yield {
-                    "source": source,
-                    "destination": destination,
-                    "file_name": file_name,
-                    "deleted": deleted,
-                    "version": version,
-                    "chunksize": chunksize_,
-                    "eccsize": eccsize_,
-                    "timestamp": timestamp,
-                    "checksum": checksum,
-                    "checksum_alg": checksum_alg
-                }
+                yield Record(
+                    source=pathlib.Path(source),
+                    destination=pathlib.Path(destination),
+                    file_name=file_name,
+                    deleted=deleted,
+                    version=version,
+                    chunksize=chunksize_,
+                    eccsize=eccsize_,
+                    timestamp=timestamp,
+                    checksum=checksum,
+                    checksum_algorithm=checksum_alg)
         elif parts[0] == "Deleted:":
             deleted = parts[1] == "true"
         elif parts[0] == "Source:":
@@ -167,15 +215,31 @@ def get_records(recordbook_path: pathlib.Path) -> [dict]:
     if first_item:
         return []
     else:
-        yield {
-            "source": source,
-            "destination": destination,
-            "file_name": file_name,
-            "deleted": deleted,
-            "version": version,
-            "chunksize": chunksize_,
-            "eccsize": eccsize_,
-            "timestamp": timestamp,
-            "checksum": checksum,
-            "checksum_alg": checksum_alg
-        }
+        yield Record(
+                    source=pathlib.Path(source),
+                    destination=pathlib.Path(destination),
+                    file_name=file_name,
+                    deleted=deleted,
+                    version=version,
+                    chunksize=chunksize_,
+                    eccsize=eccsize_,
+                    timestamp=timestamp,
+                    checksum=checksum,
+                    checksum_algorithm=checksum_alg)
+
+
+def check_recordbook_md5(recordbook_checksum: pathlib.Path):
+    if not recordbook_checksum.exists() or recordbook_checksum.stat().st_size == 0:
+        raise FileNotFoundError(
+            f"Recordbook checksum file {recordbook_checksum} not found or empty"
+        )
+    try:
+        subprocess.check_call(shlex.split(f"md5sum -c {recordbook_checksum}"))
+    except subprocess.CalledProcessError as err:
+        raise LTAError(
+            f"The recordbook checksum file {recordbook_checksum} doesn't match what's stored. Please validate it and retry."
+        ) from err
+
+
+def mark_file_as_deleted(record_no: int):
+    raise NotImplementedError()

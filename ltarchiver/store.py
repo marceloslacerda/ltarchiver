@@ -35,13 +35,13 @@ def main():
     record.write(f"Destination: {blkid}\n")
     record.write(f"Bytes-per-chunk: {chunksize}\n")
     record.write(f"EC-bytes-per-chunk: {eccsize}\n")
-    record.write(f"Timestamp: {datetime.now().isoformat()}\n")
+    record.write(f"Timestamp: {datetime.datetime.now().isoformat()}\n")
     md5 = ""
     try:
         md5 = get_file_checksum(source)
     except subprocess.SubprocessError as err:
         error(f"Error calculating the md5 of source: {err}")
-    file_not_exists(md5, source_file_name)
+    file_not_exists(md5, source_file_name, destination / source_file_name)
     record.write(f"Checksum-Algorithm: md5\n")
     record.write(f"Checksum: {md5}\n")
     destination_file_path = destination / source_file_name
@@ -75,18 +75,22 @@ def main():
     shutil.copy(recordbook_path, bkp_dir)
     recordbook_checksum_file = recordbook_checksum_file_path.open("wt")
     out = subprocess.check_output(
-        shlex.split(f"md5sum {recordbook_path}"), encoding='utf-8'
+        shlex.split(f"md5sum {recordbook_path}"), encoding="utf-8"
     )
     recordbook_checksum_file.write(out)
     recordbook_checksum_file.close()
-    pathlib.Path(bkp_dir / "checksum.txt").write_text(out.split(' ', 1)[0] + ' ' + str(bkp_dir / "recordbook.txt"))
+    pathlib.Path(bkp_dir / "checksum.txt").write_text(
+        out.split(" ", 1)[0] + " " + str(bkp_dir / "recordbook.txt")
+    )
     os.sync()
     print("All done")
 
 
 def get_device_uuid(destination):
     fs = (
-        subprocess.check_output(shlex.split(f"df --output=source {destination}"), encoding="utf-8")
+        subprocess.check_output(
+            shlex.split(f"df --output=source {destination}"), encoding="utf-8"
+        )
         .split("\n")[1]
         .strip()
     )
@@ -96,58 +100,55 @@ def get_device_uuid(destination):
     raise LTAError(f"UUID not found for {destination}")
 
 
-def file_not_exists(md5: str, file_name: str):
+def file_not_exists(md5: str, file_name: str, destination_path: pathlib.Path):
     if not recordbook_path.exists():
         raise FileNotFoundError("The recordbook doesn't exist")
+    record_no = 0
     for record in get_records(recordbook_path):
         if record["checksum"] == md5 and not record["deleted"]:
-            raise LTAError(
-                f"File was already stored in the record book\n{record['source']=}\n{record['destination']=}"
-            )
+            if destination_path.exists():
+                raise LTAError(
+                    f"File was already stored in the record book\n{record['source']=}\n{record['destination']=}"
+                )
+            else:
+                mark_record_as_deleted(record_no)
         if record["file_name"] == file_name and not record["deleted"]:
             raise LTAError(
-                f"Another file was already stored with that name{record['source']=}\n{record['destination']=}\n{record['file_name']=}")
-
-
-def check_recordbook_md5(recordbook_checksum: pathlib.Path):
-    if not recordbook_checksum.exists() or recordbook_checksum.stat().st_size == 0:
-        raise FileNotFoundError(f"Recordbook checksum file {recordbook_checksum} not found or empty")
-    try:
-        subprocess.check_call(shlex.split(f"md5sum -c {recordbook_checksum}"))
-    except subprocess.CalledProcessError as err:
-        raise LTAError(
-            f"The recordbook checksum file {recordbook_checksum} doesn't match what's stored. Please validate it and retry."
-        ) from err
+                f"Another file was already stored with that name{record['source']=}\n{record['destination']=}\n{record['file_name']=}"
+            )
+        record_no += 1
 
 
 def sync_recordbooks(bkp_dir: pathlib.Path):
-    check_recordbook_md5(recordbook_checksum_file_path)
     bkp_dir.mkdir(exist_ok=True)
     dest_recordbook_path = bkp_dir / recordbook_file_name
     dest_recordbook_checksum_path = bkp_dir / "checksum.txt"
     if not recordbook_path.exists() and not dest_recordbook_path.exists():
         return  # Nothing to sync since neither exists
     elif not recordbook_path.exists() and dest_recordbook_path.exists():
-        def copy_from_destination():
-            shutil.copy(dest_recordbook_path, recordbook_path)
-            shutil.copy(dest_recordbook_checksum_path, recordbook_checksum_file_path)
-
         print("A record book exists on destination but not on origin")
         menu = TerminalMenu(
             "What would you like to be done?",
             {
                 f"Copy the definition on {dest_recordbook_path} back to {recordbook_path}?": (
-                    copy_from_destination
+                    copy_recordbook_from_to(
+                        dest_recordbook_path,
+                        dest_recordbook_checksum_path,
+                        recordbook_path,
+                        recordbook_checksum_file_path,
+                    )
                 )
-            }
+            },
         )
         menu.show()
     elif not dest_recordbook_path.exists():
+        check_recordbook_md5(recordbook_checksum_file_path)
         shutil.copy(recordbook_path, dest_recordbook_path)
     else:
-
-        check_recordbook_md5(dest_recordbook_checksum_path)
-        if dest_recordbook_checksum_path.read_text() != recordbook_checksum_file_path.read_text():
+        if (
+            dest_recordbook_checksum_path.read_text()
+            != recordbook_checksum_file_path.read_text()
+        ):
             decide_recordbooks(dest_recordbook_path, dest_recordbook_checksum_path)
 
 

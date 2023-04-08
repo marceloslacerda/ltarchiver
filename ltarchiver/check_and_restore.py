@@ -8,8 +8,8 @@ from common import *
 
 
 def restore_archive(backup_metadata_dir, backup_file_path, destination_path, record):
-    backup_file = backup_file_path.open('rb')
-    destination_file = open(destination_path, 'wb')
+    backup_file = backup_file_path.open("rb")
+    destination_file = open(destination_path, "wb")
     rsc = reedsolo.RSCodec(record["eccsize"])
     rsc.maxerrata(verbose=True)
     ecc_file = ((backup_metadata_dir / "ecc") / record["checksum"]).open("rb")
@@ -25,7 +25,9 @@ def restore_archive(backup_metadata_dir, backup_file_path, destination_path, rec
             destination_file.write(out[0])
     except reedsolo.ReedSolomonError:
         error("Too many errors found in a chunk of the file. Aborting.")
-    print(f"File restored successfully to {destination_path}. Copying back into the backup location.")
+    print(
+        f"File restored successfully to {destination_path}. Copying back into the backup location."
+    )
     backup_file.close()
     destination_file.close()
     os.sync()
@@ -45,19 +47,27 @@ def main():
     )
 
     file_ok(recordbook_checksum_file_path)
-    local_record_is_valid = subprocess.call(shlex.split(f"md5sum -c {recordbook_checksum_file_path}")) == 0
+    local_record_is_valid = (
+        subprocess.call(shlex.split(f"md5sum -c {recordbook_checksum_file_path}")) == 0
+    )
     backup_dir = backup_file_path.parent / "ltarchiver"
     backup_checksum_file = backup_dir / "checksum.txt"
 
     backup_record_is_valid = False
     if backup_checksum_file.is_file() and access(backup_checksum_file, R_OK):
-        backup_record_is_valid = subprocess.call(shlex.split(f"md5sum -c {backup_checksum_file}")) == 0
+        backup_record_is_valid = (
+            subprocess.call(shlex.split(f"md5sum -c {backup_checksum_file}")) == 0
+        )
     backup_file_checksum = get_file_checksum(backup_file_path)
     # check if file is in either record
-    local_record = record_of_file(recordbook_path, backup_file_checksum, backup_file_path)
+    local_record = record_of_file(
+        recordbook_path, backup_file_checksum, backup_file_path
+    )
     record_in_local = local_record is not None
     recordbook_backup_path = backup_dir / recordbook_file_name
-    backup_record = record_of_file(recordbook_backup_path, backup_file_checksum, backup_file_path)
+    backup_record = record_of_file(
+        recordbook_backup_path, backup_file_checksum, backup_file_path
+    )
     record_in_backup = backup_record is not None
 
     if record_in_local:
@@ -73,21 +83,29 @@ def main():
                     record = backup_record
                     try_copy_recordbook(recordbook_backup_path, recordbook_path)
                 else:
-                    input("The file was found in both recordbooks but they don't match their checksums. Press CTR+C to"
-                          " abort or Enter to try continuing with the restoration.")
+                    input(
+                        "The file was found in both recordbooks but they don't match their checksums. Press CTR+C to"
+                        " abort or Enter to try continuing with the restoration."
+                    )
             else:
-                input("The file was found only in the local recordbook but its checksum doesn't match. Press CTR+C to"
-                      " abort or Enter to try continuing with the restoration.")
+                input(
+                    "The file was found only in the local recordbook but its checksum doesn't match. Press CTR+C to"
+                    " abort or Enter to try continuing with the restoration."
+                )
     else:
         if record_in_backup:
             if backup_record_is_valid:
                 record = backup_record
                 try_copy_recordbook(recordbook_backup_path, recordbook_path)
             else:
-                input("The file was only found in the backup recordbook but it doesn't match the checksum. Press CTR+C to"
-                      " abort or Enter to try continuing with the restoration.")
+                input(
+                    "The file was only found in the backup recordbook but it doesn't match the checksum. Press CTR+C to"
+                    " abort or Enter to try continuing with the restoration."
+                )
         else:
-            error(f"Neither {backup_file_path.name} or its checksum was found in the recordbooks")
+            error(
+                f"Neither {backup_file_path.name} or its checksum was found in the recordbooks"
+            )
 
     backup_md5 = get_file_checksum(backup_file_path)
     if pathlib.Path(sys.argv[2]).is_dir():
@@ -99,7 +117,9 @@ def main():
         shutil.copyfile(backup_file_path, destination_path)
         print("File was successfully copied. Goodbye.")
     else:
-        print("Checksum doesn't match. Attempting to restore the file onto destination.")
+        print(
+            "Checksum doesn't match. Attempting to restore the file onto destination."
+        )
         restore_archive(backup_dir, backup_file_path, destination_path, record)
 
 
@@ -120,7 +140,8 @@ def try_copy_recordbook(source, destination):
     if has_more:
         while True:
             answer = input(
-                f"Do you want to overwrite {destination} with the contents of {source} (yes/no/abort)?").lower()
+                f"Do you want to overwrite {destination} with the contents of {source} (yes/no/abort)?"
+            ).lower()
             if answer == "yes":
                 shutil.copy(source, destination)
                 return
@@ -132,10 +153,16 @@ def try_copy_recordbook(source, destination):
                 pass
 
 
-def record_of_file(recordbook_path: pathlib.Path, backup_file_checksum: str, backup_file_path: pathlib.Path):
+def record_of_file(
+    recordbook_path: pathlib.Path,
+    backup_file_checksum: str,
+    backup_file_path: pathlib.Path,
+):
     for record in get_records(recordbook_path):
         if not record["deleted"] and (
-                record["checksum"] == backup_file_checksum or record["file_name"] == backup_file_path.name):
+            record["checksum"] == backup_file_checksum
+            or record["file_name"] == backup_file_path.name
+        ):
             return record
 
 

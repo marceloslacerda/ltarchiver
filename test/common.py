@@ -1,13 +1,15 @@
 import os
 import pathlib
+import shutil
+import subprocess
 import unittest
 from ltarchiver import common
 import datetime
 
-TEST_FILE_CHECKSUM = '5eb63bbbe01eeed093cb22bb8f5acdc3'
-TEST_SOURCE_FILE = pathlib.Path("test/test_source")
-TEST_RECORD_FILE = pathlib.Path("test/test_record_file")
-TEST_DESTINATION_DIRECTORY = pathlib.Path("test/test_destination_dir")
+TEST_FILE_CHECKSUM = "5eb63bbbe01eeed093cb22bb8f5acdc3"
+TEST_SOURCE_FILE = pathlib.Path("test_data/test_source")
+TEST_RECORD_FILE = pathlib.Path("test_data/test_record_file")
+TEST_DESTINATION_DIRECTORY = pathlib.Path("test_data/test_destination_dir")
 
 
 def remove_file(path):
@@ -31,17 +33,16 @@ def write_test_recorbook(path: pathlib.Path = TEST_RECORD_FILE):
         f.write(f"Checksum-Algorithm: md5\n")
         f.write(f"Checksum: {TEST_FILE_CHECKSUM}\n")
 
+def write_checksum_of_file(file: pathlib.Path, checksum_path: pathlib.Path):
+    subprocess.call(f"md5sum {file} > {checksum_path}", shell=True)
 
 class MyTestCase(unittest.TestCase):
     def setUp(self) -> None:
+        shutil.rmtree("test_data", ignore_errors=True)
+        common.recordbook_dir.mkdir(parents=True)
         TEST_SOURCE_FILE.write_text("hello world")
+        write_checksum_of_file(TEST_SOURCE_FILE, common.recordbook_checksum_file_path)
 
-    def tearDown(self) -> None:
-        os.remove(TEST_SOURCE_FILE)
-        try:
-            os.remove(TEST_RECORD_FILE)
-        except FileNotFoundError:
-            pass
 
     def test_decide_recordbooks_option_1(self):
         output = "1"
@@ -51,9 +52,11 @@ class MyTestCase(unittest.TestCase):
 
         common.input = fake_input
         common.recordbook_path.write_text("text 1")
-        dest_recordbook = pathlib.Path("other_recordbook.txt")
+        dest_recordbook = pathlib.Path("test_data/other_recordbook.txt")
+        dest_recordbook_checksum = pathlib.Path("test_data/other_recordbook_checksum.txt")
         dest_recordbook.write_text("text 2")
-        common.decide_recordbooks(dest_recordbook)
+        write_checksum_of_file(dest_recordbook, dest_recordbook_checksum)
+        common.decide_recordbooks(dest_recordbook, dest_recordbook_checksum)
         self.assertEqual(dest_recordbook.read_text(), "text 2")
         common.input = input
 
@@ -66,8 +69,10 @@ class MyTestCase(unittest.TestCase):
         common.input = fake_input
         common.recordbook_path.write_text("text 1")
         dest_recordbook = pathlib.Path("other_recordbook.txt")
+        dest_recordbook_checksum = pathlib.Path("test_data/other_recordbook_checksum.txt")
+        write_checksum_of_file(dest_recordbook, dest_recordbook_checksum)
         dest_recordbook.write_text("text 2")
-        common.decide_recordbooks(dest_recordbook)
+        common.decide_recordbooks(dest_recordbook, dest_recordbook_checksum)
         self.assertEqual(common.recordbook_path.read_text(), "text 1")
         common.input = input
 
@@ -79,13 +84,13 @@ class MyTestCase(unittest.TestCase):
 
         common.input = fake_input
         common.recordbook_path.write_text("text 1")
-        self.assertRaises(common.LTAError, common.decide_recordbooks, TEST_RECORD_FILE)
+        dest_recordbook_checksum = pathlib.Path("test_data/other_recordbook_checksum.txt")
+        write_checksum_of_file(common.recordbook_path, dest_recordbook_checksum)
+        self.assertRaises(common.LTAError, common.decide_recordbooks, TEST_RECORD_FILE, dest_recordbook_checksum)
         common.input = input
 
     def test_get_file_checksum(self):
-        self.assertEqual(
-            TEST_FILE_CHECKSUM,
-            common.get_file_checksum(TEST_SOURCE_FILE))
+        self.assertEqual(TEST_FILE_CHECKSUM, common.get_file_checksum(TEST_SOURCE_FILE))
 
     def test_file_ok_source_or_destination(self):
         # to test the errors of permission I'd have to remove the r/w permissions of a file but doing so is impossible
@@ -106,18 +111,17 @@ class MyTestCase(unittest.TestCase):
         records = list(common.get_records(TEST_RECORD_FILE))
         self.assertEqual(len(records), 1)
         record = records[0]
+        self.assertEqual(record.version, 1)
+        self.assertEqual(record.deleted, False)
+        self.assertEqual(record.file_name, "test_source")
+        self.assertEqual(record.source, TEST_SOURCE_FILE.absolute())
         self.assertEqual(
-            {"version", "deleted", "file_name", "source", "destination", "chunksize", "eccsize", "timestamp",
-             "checksum_alg", "checksum"}, set(record.keys()))
-        self.assertEqual(record["version"], 1)
-        self.assertEqual(record["deleted"], False)
-        self.assertEqual(record["file_name"], "test_source")
-        self.assertEqual(record["source"], str(TEST_SOURCE_FILE.absolute()))
-        self.assertEqual(record["destination"], str(TEST_DESTINATION_DIRECTORY.absolute()))
-        self.assertEqual(record["chunksize"], common.chunksize)
-        self.assertEqual(record["eccsize"], common.eccsize)
-        self.assertEqual(record["checksum_alg"], "md5")
-        self.assertEqual(record["checksum"], TEST_FILE_CHECKSUM)
+            record.destination, TEST_DESTINATION_DIRECTORY.absolute()
+        )
+        self.assertEqual(record.chunksize, common.chunksize)
+        self.assertEqual(record.eccsize, common.eccsize)
+        self.assertEqual(record.checksum_algorithm, "md5")
+        self.assertEqual(record.checksum, TEST_FILE_CHECKSUM)
 
     def test_get_records_two_entries(self):
         with open(TEST_RECORD_FILE, "w") as f:
@@ -146,32 +150,30 @@ class MyTestCase(unittest.TestCase):
         records = list(common.get_records(TEST_RECORD_FILE))
         self.assertEqual(len(records), 2)
         record = records[0]
+        self.assertEqual(record.version, 1)
+        self.assertEqual(record.deleted, False)
+        self.assertEqual(record.file_name, "test_source")
+        self.assertEqual(record.source, TEST_SOURCE_FILE.absolute())
         self.assertEqual(
-            {"version", "deleted", "file_name", "source", "destination", "chunksize", "eccsize", "timestamp",
-             "checksum_alg", "checksum"}, set(record.keys()))
-        self.assertEqual(record["version"], 1)
-        self.assertEqual(record["deleted"], False)
-        self.assertEqual(record["file_name"], "test_source")
-        self.assertEqual(record["source"], str(TEST_SOURCE_FILE.absolute()))
-        self.assertEqual(record["destination"], str(TEST_DESTINATION_DIRECTORY.absolute()))
-        self.assertEqual(record["chunksize"], common.chunksize)
-        self.assertEqual(record["eccsize"], common.eccsize)
-        self.assertEqual(record["checksum_alg"], "md5")
-        self.assertEqual(record["checksum"], TEST_FILE_CHECKSUM)
+            record.destination, TEST_DESTINATION_DIRECTORY.absolute()
+        )
+        self.assertEqual(record.chunksize, common.chunksize)
+        self.assertEqual(record.eccsize, common.eccsize)
+        self.assertEqual(record.checksum_algorithm, "md5")
+        self.assertEqual(record.checksum, TEST_FILE_CHECKSUM)
         record = records[1]
+        self.assertEqual(record.version, 2)
+        self.assertEqual(record.deleted, True)
+        self.assertEqual(record.file_name, "test_source2")
+        self.assertEqual(str(record.source), str(TEST_SOURCE_FILE.absolute()) + "2")
         self.assertEqual(
-            {"version", "deleted", "file_name", "source", "destination", "chunksize", "eccsize", "timestamp",
-             "checksum_alg", "checksum"}, set(record.keys()))
-        self.assertEqual(record["version"], 2)
-        self.assertEqual(record["deleted"], True)
-        self.assertEqual(record["file_name"], "test_source2")
-        self.assertEqual(record["source"], str(TEST_SOURCE_FILE.absolute()) + "2")
-        self.assertEqual(record["destination"], str(TEST_DESTINATION_DIRECTORY.absolute()) + "2")
-        self.assertEqual(record["chunksize"], 40)
-        self.assertEqual(record["eccsize"], 10)
-        self.assertEqual(record["checksum_alg"], "sha1")
-        self.assertEqual(record["checksum"], "4321")
+            str(record.destination), str(TEST_DESTINATION_DIRECTORY.absolute()) + "2"
+        )
+        self.assertEqual(record.chunksize, 40)
+        self.assertEqual(record.eccsize, 10)
+        self.assertEqual(record.checksum_algorithm, "sha1")
+        self.assertEqual(record.checksum, "4321")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
