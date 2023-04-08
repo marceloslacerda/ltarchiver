@@ -151,7 +151,6 @@ def sync_recordbooks(bkp_dir: pathlib.Path):
             decide_recordbooks(dest_recordbook_path, dest_recordbook_checksum_path)
 
 
-
 if __name__ == "__main__":
     try:
         main()
