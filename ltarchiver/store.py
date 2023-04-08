@@ -124,17 +124,31 @@ def sync_recordbooks(bkp_dir: pathlib.Path):
     check_recordbook_md5(recordbook_checksum_file_path)
     bkp_dir.mkdir(exist_ok=True)
     dest_recordbook_path = bkp_dir / recordbook_file_name
+    dest_recordbook_checksum_path = bkp_dir / "checksum.txt"
     if not recordbook_path.exists() and not dest_recordbook_path.exists():
         return  # Nothing to sync since neither exists
     elif not recordbook_path.exists() and dest_recordbook_path.exists():
-        raise LTAError("A record book exists on destination but not on origin")
+        def copy_from_destination():
+            shutil.copy(dest_recordbook_path, recordbook_path)
+            shutil.copy(dest_recordbook_checksum_path, recordbook_checksum_file_path)
+
+        print("A record book exists on destination but not on origin")
+        menu = TerminalMenu(
+            "What would you like to be done?",
+            {
+                f"Copy the definition on {dest_recordbook_path} back to {recordbook_path}?": (
+                    copy_from_destination
+                )
+            }
+        )
+        menu.show()
     elif not dest_recordbook_path.exists():
         shutil.copy(recordbook_path, dest_recordbook_path)
     else:
-        dest_recordbook_checksum_path = bkp_dir / "checksum.txt"
+
         check_recordbook_md5(dest_recordbook_checksum_path)
         if dest_recordbook_checksum_path.read_text() != recordbook_checksum_file_path.read_text():
-            decide_recordbooks(dest_recordbook_path)
+            decide_recordbooks(dest_recordbook_path, dest_recordbook_checksum_path)
 
 
 

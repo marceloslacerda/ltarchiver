@@ -4,7 +4,9 @@ import shlex
 import shutil
 import subprocess
 import sys
+import typing
 from os import access, R_OK, W_OK
+from dataclasses import dataclass
 
 recordbook_file_name = "recordbook.txt"
 recordbook_dir = pathlib.Path.home() / ".ltarchiver"
@@ -19,6 +21,41 @@ eccsize = 8  # bytes
 class LTAError(Exception):
     def __init__(self, error_message):
         self.args = (error_message,)
+
+
+@dataclass
+class TerminalMenu:
+    title: str
+    options: typing.Dict[str, typing.Callable]
+    with_abort: bool = True
+
+    def __post_init__(self):
+        def abort():
+            raise LTAError("Aborted by the request of the user")
+
+        if self.with_abort:
+            self.options["Abort"] = abort
+
+    def show(self):
+        callbacks = list(self.options.values())
+        while True:
+            print(self.title)
+            option_count = 1
+            for text in self.options.keys():
+                print(option_count, '-', text)
+                option_count += 1
+            s = input()
+            try:
+                user_input = int(s)
+            except ValueError:
+                print(f"{s} is not a number")
+                continue
+            if 1 > user_input > option_count - 1:
+                print(f"{s} is not a number between 1 and {option_count - 1}")
+                continue
+            else:
+                callbacks[user_input - 1]()
+                break
 
 
 def error(msg: str):
@@ -47,24 +84,31 @@ def file_ok(path: pathlib.Path, source=True):
             return LTAError(f"File {path} is not writable")
 
 
-def decide_recordbooks(destination_recordbook_path: pathlib.Path):
+def decide_recordbooks(destination_recordbook_path: pathlib.Path, destination_recordbook_checksum_path: pathlib.Path):
     subprocess.call(shlex.split(f"diff {recordbook_path} {destination_recordbook_path}"))
-    while True:
-        print("What should be done?")
-        print(f"1 - Overwrite the contents of {recordbook_path} with {destination_recordbook_path}")
-        print(f"2 - Overwrite the contents of {destination_recordbook_path} with {recordbook_path}")
-        print("3 - Abort")
-        s = input()
-        if s == "1":
-            shutil.copy(destination_recordbook_path, recordbook_path)
-        elif s == "2":
-            shutil.copy(recordbook_path, destination_recordbook_path)
-        elif s == "3":
-            raise LTAError("Aborted by the request of the user")
-        else:
-            print(f"{s} is not a number between 1 and 3")
-            continue
-        break
+
+    def copy_from_to(from_file: pathlib.Path, from_checksum: pathlib.Path, to_file: pathlib.Path,
+                     to_checksum: pathlib.Path):
+        def copy():
+            shutil.copy(from_file, to_file)
+            shutil.copy(from_checksum, to_checksum)
+
+        return copy
+
+    menu = TerminalMenu(
+        "What should be done?",
+        {
+            f"Overwrite the contents of {recordbook_path} with {destination_recordbook_path}": (
+                copy_from_to(destination_recordbook_path, destination_recordbook_checksum_path, recordbook_path,
+                             recordbook_checksum_file_path)
+            )
+            ,
+            f"Overwrite the contents of {destination_recordbook_path} with {recordbook_path}": (
+                copy_from_to(recordbook_path, recordbook_checksum_file_path, destination_recordbook_path,
+                             destination_recordbook_checksum_path))
+        }
+    )
+    menu.show()
 
 
 def get_records(recordbook_path: pathlib.Path) -> [dict]:
