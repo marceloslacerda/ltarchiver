@@ -1,15 +1,10 @@
-import os
 import pathlib
-import shutil
 import subprocess
 import unittest
-import datetime
 from ltarchiver import common, store
 from test.common import (
     TEST_FILE_CHECKSUM,
-    TEST_RECORD_FILE,
     TEST_SOURCE_FILE,
-    TEST_DESTINATION_DIRECTORY,
     write_test_recorbook,
     remove_file,
     setup_test_files,

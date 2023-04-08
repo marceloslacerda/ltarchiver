@@ -20,6 +20,17 @@ def main():
     file_ok(destination, False)
     sync_recordbooks(bkp_dir)
     file_ok(source)
+    source_file_name = source.name
+    try:
+        md5 = get_file_checksum(source)
+    except subprocess.SubprocessError as err:
+        raise LTAError(f"Error calculating the md5 of source: {err}") from err
+    try:
+        file_not_exists(md5, source_file_name, destination / source_file_name)
+    except FileNotFoundError:
+        pass  # Triggered when the recordbook is not found. This usually means that it's the first time that ltarchiver
+        # is running
+        # if file were to exist on destination's recordbook it would have been already copied during sync
     blkid = ""
     try:
         blkid = get_device_uuid(destination)
@@ -29,19 +40,12 @@ def main():
     record.write("Item\n")
     record.write("Version: 1\n")
     record.write("Deleted: false\n")
-    source_file_name = source.name
     record.write(f"File-Name: {source_file_name}\n")
     record.write(f"Source: {source}\n")
     record.write(f"Destination: {blkid}\n")
     record.write(f"Bytes-per-chunk: {chunksize}\n")
     record.write(f"EC-bytes-per-chunk: {eccsize}\n")
     record.write(f"Timestamp: {datetime.datetime.now().isoformat()}\n")
-    md5 = ""
-    try:
-        md5 = get_file_checksum(source)
-    except subprocess.SubprocessError as err:
-        error(f"Error calculating the md5 of source: {err}")
-    file_not_exists(md5, source_file_name, destination / source_file_name)
     record.write(f"Checksum-Algorithm: md5\n")
     record.write(f"Checksum: {md5}\n")
     destination_file_path = destination / source_file_name
@@ -66,7 +70,7 @@ def main():
     ecc_bkp_file.close()
     os.sync()
     if get_file_checksum(ecc_file_path) != get_file_checksum(ecc_bkp_file_path):
-        error("ECC files on source and destination devices do not match")
+        raise LTAError("ECC files on source and destination devices do not match")
     os.remove(ecc_bkp_file_path)
     record.close()
     recordbook = recordbook_path.open("wt")
@@ -121,7 +125,7 @@ def file_not_exists(md5: str, file_name: str, destination_path: pathlib.Path):
 
 
 def sync_recordbooks(bkp_dir: pathlib.Path):
-    bkp_dir.mkdir(exist_ok=True)
+    bkp_dir.mkdir(exist_ok=True, parents=True)
     dest_recordbook_path = bkp_dir / recordbook_file_name
     dest_recordbook_checksum_path = bkp_dir / "checksum.txt"
     if not recordbook_path.exists() and not dest_recordbook_path.exists():
@@ -147,9 +151,10 @@ def sync_recordbooks(bkp_dir: pathlib.Path):
         shutil.copy(recordbook_path, dest_recordbook_path)
     else:
         if (
-            dest_recordbook_checksum_path.read_text()
-            != recordbook_checksum_file_path.read_text()
+            dest_recordbook_checksum_path.read_text().split()[0]
+            != recordbook_checksum_file_path.read_text().split()[0]
         ):
+            print("Recordbooks checksum on source and destination differ.")
             decide_recordbooks(dest_recordbook_path, dest_recordbook_checksum_path)
 
 
