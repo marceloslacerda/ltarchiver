@@ -1,4 +1,5 @@
 import datetime
+import os
 import pathlib
 import shlex
 import shutil
@@ -116,10 +117,10 @@ def file_ok(path: pathlib.Path, source=True):
 
 
 def copy_recordbook_from_to(
-        from_file: pathlib.Path,
-        from_checksum: pathlib.Path,
-        to_file: pathlib.Path,
-        to_checksum: pathlib.Path,
+    from_file: pathlib.Path,
+    from_checksum: pathlib.Path,
+    to_file: pathlib.Path,
+    to_checksum: pathlib.Path,
 ):
     def copy():
         check_recordbook_md5(from_checksum)
@@ -130,8 +131,8 @@ def copy_recordbook_from_to(
 
 
 def decide_recordbooks(
-        destination_recordbook_path: pathlib.Path,
-        destination_recordbook_checksum_path: pathlib.Path,
+    destination_recordbook_path: pathlib.Path,
+    destination_recordbook_checksum_path: pathlib.Path,
 ):
     subprocess.call(
         shlex.split(f"diff {recordbook_path} {destination_recordbook_path}")
@@ -190,7 +191,8 @@ def get_records(recordbook_path: pathlib.Path) -> [Record]:
                     eccsize=eccsize_,
                     timestamp=timestamp,
                     checksum=checksum,
-                    checksum_algorithm=checksum_alg)
+                    checksum_algorithm=checksum_alg,
+                )
         elif parts[0] == "Deleted:":
             deleted = parts[1] == "true"
         elif parts[0] == "Source:":
@@ -216,16 +218,17 @@ def get_records(recordbook_path: pathlib.Path) -> [Record]:
         return []
     else:
         yield Record(
-                    source=pathlib.Path(source),
-                    destination=pathlib.Path(destination),
-                    file_name=file_name,
-                    deleted=deleted,
-                    version=version,
-                    chunksize=chunksize_,
-                    eccsize=eccsize_,
-                    timestamp=timestamp,
-                    checksum=checksum,
-                    checksum_algorithm=checksum_alg)
+            source=pathlib.Path(source),
+            destination=pathlib.Path(destination),
+            file_name=file_name,
+            deleted=deleted,
+            version=version,
+            chunksize=chunksize_,
+            eccsize=eccsize_,
+            timestamp=timestamp,
+            checksum=checksum,
+            checksum_algorithm=checksum_alg,
+        )
 
 
 def check_recordbook_md5(recordbook_checksum: pathlib.Path):
@@ -241,5 +244,9 @@ def check_recordbook_md5(recordbook_checksum: pathlib.Path):
         ) from err
 
 
-def mark_file_as_deleted(record_no: int):
-    raise NotImplementedError()
+def mark_record_as_deleted(record_idx: int):
+    records = list(get_records(recordbook_path))
+    records[record_idx].deleted = True
+    os.remove(recordbook_path)
+    for record in records:
+        record.write()

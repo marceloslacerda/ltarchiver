@@ -4,3 +4,4 @@ venv
 .idea/
 restore_dir/
 test/test_source
+test_data

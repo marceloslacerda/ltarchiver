@@ -33,16 +33,21 @@ def write_test_recorbook(path: pathlib.Path = TEST_RECORD_FILE):
         f.write(f"Checksum-Algorithm: md5\n")
         f.write(f"Checksum: {TEST_FILE_CHECKSUM}\n")
 
+
 def write_checksum_of_file(file: pathlib.Path, checksum_path: pathlib.Path):
     subprocess.call(f"md5sum {file} > {checksum_path}", shell=True)
 
+
+def setup_test_files():
+    shutil.rmtree("test_data", ignore_errors=True)
+    common.recordbook_dir.mkdir(parents=True)
+    TEST_SOURCE_FILE.write_text("hello world")
+    write_checksum_of_file(TEST_SOURCE_FILE, common.recordbook_checksum_file_path)
+
+
 class MyTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        shutil.rmtree("test_data", ignore_errors=True)
-        common.recordbook_dir.mkdir(parents=True)
-        TEST_SOURCE_FILE.write_text("hello world")
-        write_checksum_of_file(TEST_SOURCE_FILE, common.recordbook_checksum_file_path)
-
+        setup_test_files()
 
     def test_decide_recordbooks_option_1(self):
         output = "1"
@@ -53,7 +58,9 @@ class MyTestCase(unittest.TestCase):
         common.input = fake_input
         common.recordbook_path.write_text("text 1")
         dest_recordbook = pathlib.Path("test_data/other_recordbook.txt")
-        dest_recordbook_checksum = pathlib.Path("test_data/other_recordbook_checksum.txt")
+        dest_recordbook_checksum = pathlib.Path(
+            "test_data/other_recordbook_checksum.txt"
+        )
         dest_recordbook.write_text("text 2")
         write_checksum_of_file(dest_recordbook, dest_recordbook_checksum)
         common.decide_recordbooks(dest_recordbook, dest_recordbook_checksum)
@@ -69,7 +76,9 @@ class MyTestCase(unittest.TestCase):
         common.input = fake_input
         common.recordbook_path.write_text("text 1")
         dest_recordbook = pathlib.Path("other_recordbook.txt")
-        dest_recordbook_checksum = pathlib.Path("test_data/other_recordbook_checksum.txt")
+        dest_recordbook_checksum = pathlib.Path(
+            "test_data/other_recordbook_checksum.txt"
+        )
         write_checksum_of_file(dest_recordbook, dest_recordbook_checksum)
         dest_recordbook.write_text("text 2")
         common.decide_recordbooks(dest_recordbook, dest_recordbook_checksum)
@@ -84,9 +93,16 @@ class MyTestCase(unittest.TestCase):
 
         common.input = fake_input
         common.recordbook_path.write_text("text 1")
-        dest_recordbook_checksum = pathlib.Path("test_data/other_recordbook_checksum.txt")
+        dest_recordbook_checksum = pathlib.Path(
+            "test_data/other_recordbook_checksum.txt"
+        )
         write_checksum_of_file(common.recordbook_path, dest_recordbook_checksum)
-        self.assertRaises(common.LTAError, common.decide_recordbooks, TEST_RECORD_FILE, dest_recordbook_checksum)
+        self.assertRaises(
+            common.LTAError,
+            common.decide_recordbooks,
+            TEST_RECORD_FILE,
+            dest_recordbook_checksum,
+        )
         common.input = input
 
     def test_get_file_checksum(self):
@@ -115,9 +131,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(record.deleted, False)
         self.assertEqual(record.file_name, "test_source")
         self.assertEqual(record.source, TEST_SOURCE_FILE.absolute())
-        self.assertEqual(
-            record.destination, TEST_DESTINATION_DIRECTORY.absolute()
-        )
+        self.assertEqual(record.destination, TEST_DESTINATION_DIRECTORY.absolute())
         self.assertEqual(record.chunksize, common.chunksize)
         self.assertEqual(record.eccsize, common.eccsize)
         self.assertEqual(record.checksum_algorithm, "md5")
@@ -154,9 +168,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(record.deleted, False)
         self.assertEqual(record.file_name, "test_source")
         self.assertEqual(record.source, TEST_SOURCE_FILE.absolute())
-        self.assertEqual(
-            record.destination, TEST_DESTINATION_DIRECTORY.absolute()
-        )
+        self.assertEqual(record.destination, TEST_DESTINATION_DIRECTORY.absolute())
         self.assertEqual(record.chunksize, common.chunksize)
         self.assertEqual(record.eccsize, common.eccsize)
         self.assertEqual(record.checksum_algorithm, "md5")
