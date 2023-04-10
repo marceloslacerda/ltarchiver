@@ -1,20 +1,24 @@
+import sys
 import os
 import pathlib
 import shutil
+import subprocess
+import shlex
 
 import reedsolo
 
-from common import *
+from ltarchiver.common import error, file_ok, recordbook_checksum_file_path, recordbook_path, recordbook_file_name, \
+    get_file_checksum, get_records
 
 
 def restore_archive(backup_metadata_dir, backup_file_path, destination_path, record):
     backup_file = backup_file_path.open("rb")
     destination_file = open(destination_path, "wb")
-    rsc = reedsolo.RSCodec(record["eccsize"])
+    rsc = reedsolo.RSCodec(record.eccsize)
     rsc.maxerrata(verbose=True)
-    ecc_file = ((backup_metadata_dir / "ecc") / record["checksum"]).open("rb")
-    chunksize_ = record["chunksize"]
-    eccsize_ = record["eccsize"]
+    ecc_file = ((backup_metadata_dir / "ecc") / record.checksum).open("rb")
+    chunksize_ = record.chunksize
+    eccsize_ = record.eccsize
     try:
         while True:
             ba = backup_file.read(chunksize_)
@@ -48,15 +52,15 @@ def main():
 
     file_ok(recordbook_checksum_file_path)
     local_record_is_valid = (
-        subprocess.call(shlex.split(f"md5sum -c {recordbook_checksum_file_path}")) == 0
+            subprocess.call(shlex.split(f"md5sum -c {recordbook_checksum_file_path}")) == 0
     )
     backup_dir = backup_file_path.parent / "ltarchiver"
     backup_checksum_file = backup_dir / "checksum.txt"
 
     backup_record_is_valid = False
-    if backup_checksum_file.is_file() and access(backup_checksum_file, R_OK):
+    if backup_checksum_file.is_file() and os.access(backup_checksum_file, os.R_OK):
         backup_record_is_valid = (
-            subprocess.call(shlex.split(f"md5sum -c {backup_checksum_file}")) == 0
+                subprocess.call(shlex.split(f"md5sum -c {backup_checksum_file}")) == 0
         )
     backup_file_checksum = get_file_checksum(backup_file_path)
     # check if file is in either record
@@ -112,7 +116,7 @@ def main():
         destination_path = pathlib.Path(sys.argv[2]) / backup_file_path.name
     else:
         destination_path = sys.argv[2]
-    if backup_md5 == record["checksum"]:
+    if backup_md5 == record.checksum:
         print("No errors detected on the file. Beginning copy.")
         shutil.copyfile(backup_file_path, destination_path)
         print("File was successfully copied. Goodbye.")
@@ -126,10 +130,10 @@ def main():
 def try_copy_recordbook(source, destination):
     destination_records = get_records(destination)
     source_records = get_records(source)
-    destination_checksums = {record["checksum"] for record in destination_records}
-    source_checksums = {record["checksum"] for record in source_records}
-    destination_filename = {record["file_name"] for record in destination_records}
-    source_filename = {record["file_name"] for record in source_records}
+    destination_checksums = {record.checksum for record in destination_records}
+    source_checksums = {record.checksum for record in source_records}
+    destination_filename = {record.file_name for record in destination_records}
+    source_filename = {record.file_name for record in source_records}
     has_more = False
     if destination_checksums - source_checksums:
         print(f"{destination} has checksums that {source} doesn't")
@@ -154,14 +158,14 @@ def try_copy_recordbook(source, destination):
 
 
 def record_of_file(
-    recordbook_path: pathlib.Path,
-    backup_file_checksum: str,
-    backup_file_path: pathlib.Path,
+        recordbook_path: pathlib.Path,
+        backup_file_checksum: str,
+        backup_file_path: pathlib.Path,
 ):
     for record in get_records(recordbook_path):
-        if not record["deleted"] and (
-            record["checksum"] == backup_file_checksum
-            or record["file_name"] == backup_file_path.name
+        if not record.deleted and (
+                record.checksum == backup_file_checksum
+                or record.file_name == backup_file_path.name
         ):
             return record
 
