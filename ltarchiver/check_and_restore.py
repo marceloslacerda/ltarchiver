@@ -7,8 +7,15 @@ import shlex
 
 import reedsolo
 
-from ltarchiver.common import error, file_ok, recordbook_checksum_file_path, recordbook_path, recordbook_file_name, \
-    get_file_checksum, get_records
+from ltarchiver.common import (
+    error,
+    file_ok,
+    recordbook_checksum_file_path,
+    recordbook_path,
+    recordbook_file_name,
+    get_file_checksum,
+    get_records,
+)
 
 
 def restore_archive(backup_metadata_dir, backup_file_path, destination_path, record):
@@ -52,7 +59,7 @@ def main():
 
     file_ok(recordbook_checksum_file_path)
     local_record_is_valid = (
-            subprocess.call(shlex.split(f"md5sum -c {recordbook_checksum_file_path}")) == 0
+        subprocess.call(shlex.split(f"md5sum -c {recordbook_checksum_file_path}")) == 0
     )
     backup_dir = backup_file_path.parent / "ltarchiver"
     backup_checksum_file = backup_dir / "checksum.txt"
@@ -60,7 +67,7 @@ def main():
     backup_record_is_valid = False
     if backup_checksum_file.is_file() and os.access(backup_checksum_file, os.R_OK):
         backup_record_is_valid = (
-                subprocess.call(shlex.split(f"md5sum -c {backup_checksum_file}")) == 0
+            subprocess.call(shlex.split(f"md5sum -c {backup_checksum_file}")) == 0
         )
     backup_file_checksum = get_file_checksum(backup_file_path)
     # check if file is in either record
@@ -158,14 +165,14 @@ def try_copy_recordbook(source, destination):
 
 
 def record_of_file(
-        recordbook_path: pathlib.Path,
-        backup_file_checksum: str,
-        backup_file_path: pathlib.Path,
+    recordbook_path: pathlib.Path,
+    backup_file_checksum: str,
+    backup_file_path: pathlib.Path,
 ):
     for record in get_records(recordbook_path):
         if not record.deleted and (
-                record.checksum == backup_file_checksum
-                or record.file_name == backup_file_path.name
+            record.checksum == backup_file_checksum
+            or record.file_name == backup_file_path.name
         ):
             return record
 
