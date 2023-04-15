@@ -1,12 +1,16 @@
 import os
+import shlex
 import shutil
 import subprocess
+import sys
+import pathlib
 
 import reedsolo
+import datetime
 
-from datetime import datetime
-
-from ltarchiver.common import *
+from ltarchiver.common import recordbook_dir, file_ok, error, LTAError, get_file_checksum, RECORD_PATH, chunksize, \
+    eccsize, recordbook_path, ecc_dir_name, recordbook_checksum_file_path, get_records, mark_record_as_deleted, \
+    TerminalMenu, decide_recordbooks, recordbook_file_name, copy_recordbook_from_to, check_recordbook_md5
 
 
 def main():
@@ -22,7 +26,9 @@ def main():
     file_ok(source)
     source_file_name = source.name
     try:
+        print("Calculating checksum", datetime.datetime.now())
         md5 = get_file_checksum(source)
+        print("Checksum calculated", datetime.datetime.now())
     except subprocess.SubprocessError as err:
         raise LTAError(f"Error calculating the md5 of source: {err}") from err
     try:
@@ -49,29 +55,17 @@ def main():
     record.write(f"Checksum-Algorithm: md5\n")
     record.write(f"Checksum: {md5}\n")
     destination_file_path = destination / source_file_name
-    shutil.copyfile(source, destination_file_path)
+    print(f"Beginning copy of {source} to {destination_file_path}", datetime.datetime.now())
+    subprocess.check_call(shlex.split(f"cp {source} {destination_file_path}"))
+    print(f"Finished the copy process", datetime.datetime.now())
     ecc_dir = bkp_dir / ecc_dir_name
     ecc_dir.mkdir(parents=True, exist_ok=True)
     ecc_file_path = ecc_dir / md5
-    ecc_file = ecc_file_path.open("wb")
-    ecc_bkp_file_path = pathlib.Path("/tmp") / md5
-    ecc_bkp_file = ecc_bkp_file_path.open("wb")
-    rsc = reedsolo.RSCodec(eccsize)
-    source_file = source.open("rb")
-    while True:
-        ba = source_file.read(chunksize)
-        if len(ba) == 0:
-            break
-        out = rsc.encode(ba)[-eccsize:]
-        ecc_file.write(out)
-        ecc_bkp_file.write(out)
-    source_file.close()
-    ecc_file.close()
-    ecc_bkp_file.close()
+
+    print("Creating ecc file", datetime.datetime.now())
+    write_ecc(str(source), str(ecc_file_path), chunksize, eccsize)
     os.sync()
-    if get_file_checksum(ecc_file_path) != get_file_checksum(ecc_bkp_file_path):
-        raise LTAError("ECC files on source and destination devices do not match")
-    os.remove(ecc_bkp_file_path)
+    print("Done creating the ecc file", datetime.datetime.now())
     record.close()
     old_text = recordbook_path.read_text()
     recordbook = recordbook_path.open("wt")
@@ -89,6 +83,18 @@ def main():
     )
     os.sync()
     print("All done")
+
+
+def write_ecc(source_file_path: str, ecc_file_path: str, chunk_size: int, ecc_size: int):
+    rsc = reedsolo.RSCodec(eccsize)
+    with open(source_file_path, "rb") as source_file:
+        with open(ecc_file_path, "wb") as ecc_file:
+            while True:
+                ba = source_file.read(chunk_size)
+                if len(ba) == 0:
+                    break
+                out = rsc.encode(ba)[-ecc_size:]
+                ecc_file.write(out)
 
 
 def get_device_uuid(destination):
@@ -152,8 +158,8 @@ def sync_recordbooks(bkp_dir: pathlib.Path):
         shutil.copy(recordbook_path, dest_recordbook_path)
     else:
         if (
-            dest_recordbook_checksum_path.read_text().split()[0]
-            != recordbook_checksum_file_path.read_text().split()[0]
+                dest_recordbook_checksum_path.read_text().split()[0]
+                != recordbook_checksum_file_path.read_text().split()[0]
         ):
             print("Recordbooks checksum on source and destination differ.")
             decide_recordbooks(dest_recordbook_path, dest_recordbook_checksum_path)
