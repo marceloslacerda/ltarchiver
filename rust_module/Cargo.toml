@@ -11,3 +11,4 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = "0.18.1"
 reed-solomon-erasure = "4.0"
+reed-solomon = "0.2.1"
