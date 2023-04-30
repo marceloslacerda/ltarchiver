@@ -1,0 +1,3 @@
+[submodule "c-ltarchiver"]
+	path = c-ltarchiver
+	url = git@github.com:marceloslacerda/c-ltarchiver.git

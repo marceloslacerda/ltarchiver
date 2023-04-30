@@ -5,7 +5,6 @@ import subprocess
 import sys
 import pathlib
 
-import reedsolo
 import datetime
 
 from ltarchiver.common import recordbook_dir, file_ok, error, LTAError, get_file_checksum, RECORD_PATH, chunksize, \
@@ -55,17 +54,18 @@ def main():
     record.write(f"Checksum-Algorithm: md5\n")
     record.write(f"Checksum: {md5}\n")
     destination_file_path = destination / source_file_name
-    print(f"Beginning copy of {source} to {destination_file_path}", datetime.datetime.now())
-    subprocess.check_call(shlex.split(f"cp {source} {destination_file_path}"))
-    print(f"Finished the copy process", datetime.datetime.now())
     ecc_dir = bkp_dir / ecc_dir_name
     ecc_dir.mkdir(parents=True, exist_ok=True)
     ecc_file_path = ecc_dir / md5
 
     print("Creating ecc file", datetime.datetime.now())
-    write_ecc(str(source), str(ecc_file_path), chunksize, eccsize)
+    subprocess.check_call([
+        "c-ltarchiver/out/ltarchiver_store",
+        str(source),
+        str(destination_file_path),
+        str(ecc_file_path)
+    ])
     os.sync()
-    print("Done creating the ecc file", datetime.datetime.now())
     record.close()
     old_text = recordbook_path.read_text()
     recordbook = recordbook_path.open("wt")
@@ -83,18 +83,6 @@ def main():
     )
     os.sync()
     print("All done")
-
-
-def write_ecc(source_file_path: str, ecc_file_path: str, chunk_size: int, ecc_size: int):
-    rsc = reedsolo.RSCodec(eccsize)
-    with open(source_file_path, "rb") as source_file:
-        with open(ecc_file_path, "wb") as ecc_file:
-            while True:
-                ba = source_file.read(chunk_size)
-                if len(ba) == 0:
-                    break
-                out = rsc.encode(ba)[-ecc_size:]
-                ecc_file.write(out)
 
 
 def get_device_uuid(destination):
