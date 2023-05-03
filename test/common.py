@@ -12,9 +12,11 @@ TEST_RECORD_FILE = pathlib.Path("test_data/test_record_file")
 TEST_DESTINATION_DIRECTORY = pathlib.Path("test_data/test_destination_dir")
 
 
-def remove_file(path):
+def remove_file(path: pathlib.Path):
     try:
         os.remove(path)
+    except IsADirectoryError:
+        shutil.rmtree(path, ignore_errors=True)
     except FileNotFoundError:
         pass
 

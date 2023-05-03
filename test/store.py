@@ -49,7 +49,7 @@ class MyTestCase(unittest.TestCase):
         remove_file(common.recordbook_checksum_file_path)
         self.assertRaises(
             FileNotFoundError,
-            store.check_recordbook_md5,
+            common.check_recordbook_md5,
             common.recordbook_checksum_file_path,
         )
         f = open(common.recordbook_checksum_file_path, "wt")
@@ -57,7 +57,7 @@ class MyTestCase(unittest.TestCase):
         self.assertTrue(common.recordbook_checksum_file_path.exists())
         self.assertRaises(
             FileNotFoundError,
-            store.check_recordbook_md5,
+            common.check_recordbook_md5,
             common.recordbook_checksum_file_path,
         )
 
@@ -68,14 +68,14 @@ class MyTestCase(unittest.TestCase):
             encoding="utf-8",
             shell=True,
         )
-        store.check_recordbook_md5(common.recordbook_checksum_file_path)
+        common.check_recordbook_md5(common.recordbook_checksum_file_path)
 
     def test_check_recordbook_incorrect_md5(self):
         write_test_recorbook(common.recordbook_path)
         common.recordbook_checksum_file_path.write_text("incorrect md5")
         self.assertRaises(
             common.LTAError,
-            store.check_recordbook_md5,
+            common.check_recordbook_md5,
             common.recordbook_checksum_file_path,
         )
 

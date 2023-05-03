@@ -69,6 +69,7 @@ class Record:
     destination: pathlib.Path
     file_name: str
     checksum: str
+    ecc_checksum: str
     chunksize: int = chunksize
     eccsize: int = eccsize
     checksum_algorithm: str = "md5"
@@ -88,6 +89,7 @@ class Record:
             f.write(f"Timestamp: {datetime.datetime.now().isoformat()}\n")
             f.write(f"Checksum-Algorithm: {self.checksum_algorithm}\n")
             f.write(f"Checksum: {self.checksum}\n")
+            f.write(f"ECC-Checksum: {self.ecc_checksum}\n")
 
 
 def error(msg: str):
@@ -174,6 +176,7 @@ def get_records(recordbook_path: pathlib.Path) -> [Record]:
     checksum = None
     checksum_alg = None
     first_item = True
+    ecc_checksum = None
     for line in recordbook:
         line = line.strip()
         parts = line.split(" ")
@@ -192,6 +195,7 @@ def get_records(recordbook_path: pathlib.Path) -> [Record]:
                     timestamp=timestamp,
                     checksum=checksum,
                     checksum_algorithm=checksum_alg,
+                    ecc_checksum=ecc_checksum,
                 )
         elif parts[0] == "Deleted:":
             deleted = parts[1] == "true"
@@ -211,6 +215,8 @@ def get_records(recordbook_path: pathlib.Path) -> [Record]:
             timestamp = datetime.datetime.fromisoformat(parts[1])
         elif parts[0] == "Checksum-Algorithm:":
             checksum_alg = parts[1]
+        elif parts[0] == "ECC-Checksum:":
+            ecc_checksum = parts[1]
         elif parts[0] == "Version:":
             version = int(parts[1])
     recordbook.close()
@@ -228,6 +234,7 @@ def get_records(recordbook_path: pathlib.Path) -> [Record]:
             timestamp=timestamp,
             checksum=checksum,
             checksum_algorithm=checksum_alg,
+            ecc_checksum=ecc_checksum,
         )
 
 

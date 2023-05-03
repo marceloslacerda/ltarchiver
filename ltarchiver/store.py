@@ -7,74 +7,67 @@ import pathlib
 
 import datetime
 
-from ltarchiver.common import recordbook_dir, file_ok, error, LTAError, get_file_checksum, RECORD_PATH, chunksize, \
-    eccsize, recordbook_path, ecc_dir_name, recordbook_checksum_file_path, get_records, mark_record_as_deleted, \
-    TerminalMenu, decide_recordbooks, recordbook_file_name, copy_recordbook_from_to, check_recordbook_md5
+from ltarchiver import common
 
 
 def main():
     if len(sys.argv) != 3:
-        error(f"usage: {sys.argv[0]} <source> <destination>")
-    recordbook_dir.mkdir(parents=True, exist_ok=True)
-    record = RECORD_PATH.open("wt")
+        common.error(f"usage: {sys.argv[0]} <source_file> <destination_directory>")
+    common.recordbook_dir.mkdir(parents=True, exist_ok=True)
     source = pathlib.Path(sys.argv[1]).absolute()
     destination = pathlib.Path(sys.argv[2]).absolute()
     bkp_dir = destination / "ltarchiver"
-    file_ok(destination, False)
+    common.file_ok(destination, False)
     sync_recordbooks(bkp_dir)
-    file_ok(source)
+    common.file_ok(source)
     source_file_name = source.name
     try:
         print("Calculating checksum", datetime.datetime.now())
-        md5 = get_file_checksum(source)
+        md5 = common.get_file_checksum(source)
         print("Checksum calculated", datetime.datetime.now())
     except subprocess.SubprocessError as err:
-        raise LTAError(f"Error calculating the md5 of source: {err}") from err
+        raise common.LTAError(f"Error calculating the md5 of source: {err}") from err
     try:
         file_not_exists(md5, source_file_name, destination / source_file_name)
     except FileNotFoundError:
         pass  # Triggered when the recordbook is not found. This usually means that it's the first time that ltarchiver
         # is running
         # if file were to exist on destination's recordbook it would have been already copied during sync
-    blkid = ""
-    try:
-        blkid = get_device_uuid(destination)
-    except subprocess.SubprocessError as err:
-        error(f"Error trying to obtain the blkid of {destination}:\n{err}")
-    record.write("\n")
-    record.write("Item\n")
-    record.write("Version: 1\n")
-    record.write("Deleted: false\n")
-    record.write(f"File-Name: {source_file_name}\n")
-    record.write(f"Source: {source}\n")
-    record.write(f"Destination: {blkid}\n")
-    record.write(f"Bytes-per-chunk: {chunksize}\n")
-    record.write(f"EC-bytes-per-chunk: {eccsize}\n")
-    record.write(f"Timestamp: {datetime.datetime.now().isoformat()}\n")
-    record.write(f"Checksum-Algorithm: md5\n")
-    record.write(f"Checksum: {md5}\n")
     destination_file_path = destination / source_file_name
-    ecc_dir = bkp_dir / ecc_dir_name
+    ecc_dir = bkp_dir / common.ecc_dir_name
     ecc_dir.mkdir(parents=True, exist_ok=True)
     ecc_file_path = ecc_dir / md5
 
-    print("Creating ecc file", datetime.datetime.now())
-    subprocess.check_call([
-        "c-ltarchiver/out/ltarchiver_store",
-        str(source),
-        str(destination_file_path),
-        str(ecc_file_path)
-    ])
+    print("Encoding and storing file", datetime.datetime.now())
+    subprocess.check_call(
+        [
+            "c-ltarchiver/out/ltarchiver_store",
+            str(source),
+            str(destination_file_path),
+            str(ecc_file_path),
+        ]
+    )
     os.sync()
-    record.close()
-    old_text = recordbook_path.read_text()
-    recordbook = recordbook_path.open("wt")
-    recordbook.write(old_text + "\n" + RECORD_PATH.read_text())
+    record = common.Record(
+        timestamp=datetime.datetime.now(),
+        file_name=source_file_name,
+        source=source,
+        destination=destination,
+        checksum=md5,
+        ecc_checksum=common.get_file_checksum(ecc_file_path),
+    )
+    record.write(common.RECORD_PATH)
+    try:
+        old_text = common.recordbook_path.read_text() + "\n"
+    except FileNotFoundError:
+        old_text = ""
+    recordbook = common.recordbook_path.open("wt")
+    recordbook.write(old_text + common.RECORD_PATH.read_text())
     recordbook.close()
-    shutil.copy(recordbook_path, bkp_dir)
-    recordbook_checksum_file = recordbook_checksum_file_path.open("wt")
+    shutil.copy(common.recordbook_path, bkp_dir)
+    recordbook_checksum_file = common.recordbook_checksum_file_path.open("wt")
     out = subprocess.check_output(
-        shlex.split(f"md5sum {recordbook_path}"), encoding="utf-8"
+        shlex.split(f"md5sum {common.recordbook_path}"), encoding="utf-8"
     )
     recordbook_checksum_file.write(out)
     recordbook_checksum_file.close()
@@ -96,24 +89,24 @@ def get_device_uuid(destination):
     for p in pathlib.Path("/dev/disk/by-uuid/").iterdir():
         if pathlib.Path(fs) == (pathlib.Path("/dev") / p.readlink().name):
             return p.name
-    raise LTAError(f"UUID not found for {destination}")
+    raise common.LTAError(f"UUID not found for {destination}")
 
 
 def file_not_exists(md5: str, file_name: str, destination_path: pathlib.Path):
     """The function fails if the file is in the recordbook and it's not deleted"""
-    if not recordbook_path.exists():
+    if not common.recordbook_path.exists():
         raise FileNotFoundError("The recordbook doesn't exist")
     record_no = 0
-    for record in get_records(recordbook_path):
+    for record in common.get_records(common.recordbook_path):
         if record.checksum == md5 and not record.deleted:
             if destination_path.exists():
-                raise LTAError(
+                raise common.LTAError(
                     f"File was already stored in the record book\n{record.source=}\n{record.destination=}"
                 )
             else:
-                mark_record_as_deleted(record_no - 1)
+                common.mark_record_as_deleted(record_no - 1)
         if record.file_name == file_name and not record.deleted:
-            raise LTAError(
+            raise common.LTAError(
                 f"Another file was already stored with that name{record.source=}\n{record.destination=}\n{record.file_name=}"
             )
         record_no += 1
@@ -121,40 +114,42 @@ def file_not_exists(md5: str, file_name: str, destination_path: pathlib.Path):
 
 def sync_recordbooks(bkp_dir: pathlib.Path):
     bkp_dir.mkdir(exist_ok=True, parents=True)
-    dest_recordbook_path = bkp_dir / recordbook_file_name
+    dest_recordbook_path = bkp_dir / common.recordbook_file_name
     dest_recordbook_checksum_path = bkp_dir / "checksum.txt"
-    if not recordbook_path.exists() and not dest_recordbook_path.exists():
+    if not common.recordbook_path.exists() and not dest_recordbook_path.exists():
         return  # Nothing to sync since neither exists
-    elif not recordbook_path.exists() and dest_recordbook_path.exists():
+    elif not common.recordbook_path.exists() and dest_recordbook_path.exists():
         print("A record book exists on destination but not on origin")
-        menu = TerminalMenu(
+        menu = common.TerminalMenu(
             "What would you like to be done?",
             {
-                f"Copy the definition on {dest_recordbook_path} back to {recordbook_path}?": (
-                    copy_recordbook_from_to(
+                f"Copy the definition on {dest_recordbook_path} back to {common.recordbook_path}?": (
+                    common.copy_recordbook_from_to(
                         dest_recordbook_path,
                         dest_recordbook_checksum_path,
-                        recordbook_path,
-                        recordbook_checksum_file_path,
+                        common.recordbook_path,
+                        common.recordbook_checksum_file_path,
                     )
                 )
             },
         )
         menu.show()
     elif not dest_recordbook_path.exists():
-        check_recordbook_md5(recordbook_checksum_file_path)
-        shutil.copy(recordbook_path, dest_recordbook_path)
+        common.check_recordbook_md5(common.recordbook_checksum_file_path)
+        shutil.copy(common.recordbook_path, dest_recordbook_path)
     else:
         if (
-                dest_recordbook_checksum_path.read_text().split()[0]
-                != recordbook_checksum_file_path.read_text().split()[0]
+            dest_recordbook_checksum_path.read_text().split()[0]
+            != common.recordbook_checksum_file_path.read_text().split()[0]
         ):
             print("Recordbooks checksum on source and destination differ.")
-            decide_recordbooks(dest_recordbook_path, dest_recordbook_checksum_path)
+            common.decide_recordbooks(
+                dest_recordbook_path, dest_recordbook_checksum_path
+            )
 
 
 if __name__ == "__main__":
     try:
         main()
-    except LTAError as err:
-        error(err.args[0])
+    except common.LTAError as err_:
+        common.error(err_.args[0])

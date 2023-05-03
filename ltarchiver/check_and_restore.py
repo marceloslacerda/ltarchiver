@@ -5,8 +5,6 @@ import shutil
 import subprocess
 import shlex
 
-import reedsolo
-
 from ltarchiver.common import (
     error,
     file_ok,
@@ -15,36 +13,8 @@ from ltarchiver.common import (
     recordbook_file_name,
     get_file_checksum,
     get_records,
+    recordbook_dir,
 )
-
-
-def restore_archive(backup_metadata_dir, backup_file_path, destination_path, record):
-    backup_file = backup_file_path.open("rb")
-    destination_file = open(destination_path, "wb")
-    rsc = reedsolo.RSCodec(record.eccsize)
-    rsc.maxerrata(verbose=True)
-    ecc_file = ((backup_metadata_dir / "ecc") / record.checksum).open("rb")
-    chunksize_ = record.chunksize
-    eccsize_ = record.eccsize
-    try:
-        while True:
-            ba = backup_file.read(chunksize_)
-            if len(ba) == 0:
-                break
-            ecc = ecc_file.read(eccsize_)
-            out = rsc.decode(ba + ecc)
-            destination_file.write(out[0])
-    except reedsolo.ReedSolomonError:
-        error("Too many errors found in a chunk of the file. Aborting.")
-    print(
-        f"File restored successfully to {destination_path}. Copying back into the backup location."
-    )
-    backup_file.close()
-    destination_file.close()
-    os.sync()
-    shutil.copyfile(destination_path, backup_file_path)
-    os.sync()
-    print("All done! Goodbye.")
 
 
 def main():
@@ -131,7 +101,37 @@ def main():
         print(
             "Checksum doesn't match. Attempting to restore the file onto destination."
         )
-        restore_archive(backup_dir, backup_file_path, destination_path, record)
+        original_ecc_file_path = (backup_dir / "ecc") / record.checksum
+        new_ecc_file_path = recordbook_dir / "temp_ecc.bin"
+        subprocess.check_call(
+            [
+                "c-ltarchiver/out/ltarchiver_restore",
+                str(backup_file_path),
+                str(destination_path),
+                str(original_ecc_file_path),
+                str(new_ecc_file_path),
+            ]
+        )
+        print("Checking if the restoration succeeded...")
+        new_ecc_checksum = get_file_checksum(new_ecc_file_path)
+        destination_checksum = get_file_checksum(destination_path)
+        failed = False
+        if new_ecc_checksum == record.ecc_checksum:
+            print("The restored ECC doesn't match what was expected.")
+            failed = True
+        if destination_checksum == record.checksum:
+            print("The file doesn't match what was expected.")
+            failed = True
+        if failed:
+            print(
+                "Sorry! Failed to restore the requested file. You are on your own now."
+            )
+            exit(1)
+        else:
+            subprocess.check_call(["cp", new_ecc_file_path, original_ecc_file_path])
+            os.remove(new_ecc_file_path)
+            print("Restoration successful!")
+            exit(0)
 
 
 def try_copy_recordbook(source, destination):
