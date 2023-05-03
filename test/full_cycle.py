@@ -74,7 +74,30 @@ class MyTestCase(unittest.TestCase):
         new_ecc_md5 = get_file_checksum(TEST_CHECKSUM_FILE)
         self.assertNotEqual(original_ecc_md5, new_ecc_md5)
 
-    # todo test too many errors failure
+    def test_create_and_restore_small_too_many_errors(self):
+        original_md5 = get_file_checksum(common.TEST_SOURCE_FILE)
+        self.assertFalse(TEST_DESTINATION_FILE.exists())
+        self.assertFalse(TEST_RECOVERY_FILE.exists())
+        subprocess.check_call(
+            shlex.split(
+                f"python3 -m ltarchiver.store {common.TEST_SOURCE_FILE} {TEST_DESTINATION_DIRECTORY}"
+            )
+        )
+        destination_md5 = get_file_checksum(TEST_DESTINATION_FILE)
+        self.assertEqual(original_md5, destination_md5)
+        add_errors_to_file(TEST_DESTINATION_FILE, 2)
+        destination_md5 = get_file_checksum(TEST_DESTINATION_FILE)
+        self.assertNotEqual(original_md5, destination_md5)
+        self.assertRaises(
+            subprocess.CalledProcessError,
+            subprocess.check_call,
+            shlex.split(
+                f"python3 -m ltarchiver.check_and_restore {TEST_DESTINATION_FILE} {TEST_RECOVERY_FILE}"
+            )
+        )
+
+        recovered_md5 = get_file_checksum(TEST_RECOVERY_FILE)
+        self.assertNotEqual(original_md5, recovered_md5)
 
 
 #    def test_create_and_restore_large(self):
