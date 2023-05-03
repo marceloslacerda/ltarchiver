@@ -93,15 +93,21 @@ def main():
         destination_path = pathlib.Path(sys.argv[2]) / backup_file_path.name
     else:
         destination_path = sys.argv[2]
-    if backup_md5 == record.checksum:
+    original_ecc_file_path = (backup_dir / "ecc") / record.checksum
+    original_ecc_checksum = get_file_checksum(original_ecc_file_path)
+    if backup_md5 == record.checksum and original_ecc_checksum == record.ecc_checksum:
         print("No errors detected on the file. Beginning copy.")
         shutil.copyfile(backup_file_path, destination_path)
         print("File was successfully copied. Goodbye.")
+        exit(0)
+    elif backup_md5 == record.checksum and original_ecc_checksum != record.ecc_checksum:
+        print("Only the ecc differs from what's stored in the recordbook. The fastest way to go is to call the restore"
+              " routine on this file again.")
+        exit(1)
     else:
         print(
             "Checksum doesn't match. Attempting to restore the file onto destination."
         )
-        original_ecc_file_path = (backup_dir / "ecc") / record.checksum
         new_ecc_file_path = recordbook_dir / "temp_ecc.bin"
         subprocess.check_call(
             [
@@ -116,10 +122,10 @@ def main():
         new_ecc_checksum = get_file_checksum(new_ecc_file_path)
         destination_checksum = get_file_checksum(destination_path)
         failed = False
-        if new_ecc_checksum == record.ecc_checksum:
+        if new_ecc_checksum != record.ecc_checksum:
             print("The restored ECC doesn't match what was expected.")
             failed = True
-        if destination_checksum == record.checksum:
+        if destination_checksum != record.checksum:
             print("The file doesn't match what was expected.")
             failed = True
         if failed:

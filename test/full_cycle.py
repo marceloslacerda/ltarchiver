@@ -12,7 +12,7 @@ TEST_DESTINATION_FILE = TEST_DESTINATION_DIRECTORY / common.TEST_SOURCE_FILE.nam
 TEST_RECOVERY_FILE = pathlib.Path("restore_dir/test_source")
 TEST_CHECKSUM_FILE = (
     TEST_DESTINATION_DIRECTORY
-    / pathlib.Path("/ltarchiver/ecc/")
+    / pathlib.Path("ltarchiver/ecc/")
     / common.TEST_FILE_CHECKSUM
 )
 
@@ -54,23 +54,25 @@ class MyTestCase(unittest.TestCase):
         )
         recovered_md5 = get_file_checksum(TEST_RECOVERY_FILE)
         self.assertEqual(original_md5, recovered_md5)
-        common.remove_file(TEST_RECOVERY_FILE)
+
+    def test_restore_small_ecc(self):
+        original_md5 = get_file_checksum(common.TEST_SOURCE_FILE)
         subprocess.check_call(
             shlex.split(
-                f"python3 -m ltarchiver.store {common.TEST_SOURCE_FILE} {TEST_DESTINATION_FILE}"
+                f"python3 -m ltarchiver.store {common.TEST_SOURCE_FILE} {TEST_DESTINATION_DIRECTORY}"
             )
         )
         original_ecc_md5 = get_file_checksum(TEST_CHECKSUM_FILE)
         add_errors_to_file(TEST_CHECKSUM_FILE)
-        subprocess.check_call(
+        self.assertRaises(
+            subprocess.CalledProcessError,
+            subprocess.check_call,
             shlex.split(
                 f"python3 -m ltarchiver.check_and_restore {TEST_DESTINATION_FILE} {TEST_RECOVERY_FILE}"
             )
-        )
+            )
         new_ecc_md5 = get_file_checksum(TEST_CHECKSUM_FILE)
-        self.assertEqual(original_ecc_md5, new_ecc_md5)
-        recovered_md5 = get_file_checksum(TEST_RECOVERY_FILE)
-        self.assertEqual(original_md5, recovered_md5)
+        self.assertNotEqual(original_ecc_md5, new_ecc_md5)
 
     # todo test too many errors failure
 
