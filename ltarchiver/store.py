@@ -10,7 +10,7 @@ import datetime
 from ltarchiver import common
 
 
-def main():
+def store():
     if len(sys.argv) != 3:
         common.error(f"usage: {sys.argv[0]} <source_file> <destination_directory>")
     common.recordbook_dir.mkdir(parents=True, exist_ok=True)
@@ -152,9 +152,11 @@ def sync_recordbooks(bkp_dir: pathlib.Path):
                 dest_recordbook_path, dest_recordbook_checksum_path
             )
 
-
-if __name__ == "__main__":
+def run():
     try:
-        main()
+        store()
     except common.LTAError as err_:
         common.error(err_.args[0])
+
+if __name__ == "__main__":
+    run()

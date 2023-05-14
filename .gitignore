@@ -5,3 +5,4 @@ venv
 restore_dir/
 test/test_source
 test_data
+ltarchiver.egg-info/

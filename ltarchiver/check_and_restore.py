@@ -17,7 +17,7 @@ from ltarchiver.common import (
 )
 
 
-def main():
+def run():
     if len(sys.argv) != 3:
         error(f"usage: {sys.argv[0]} <backup> <destination>")
     backup_file_path = pathlib.Path(sys.argv[1])
@@ -186,4 +186,4 @@ def record_of_file(
 
 
 if __name__ == "__main__":
-    main()
+    run()
