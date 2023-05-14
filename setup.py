@@ -6,7 +6,7 @@ subprocess.call(['git', 'submodule', 'init'])
 subprocess.call(['git', 'submodule', 'update'])
 
 # Call makefile to compile the C extension before installation
-subprocess.call(['make', '-C', 'c-ltarchiver'])
+subprocess.call(['make', '-C', 'c-ltarchiver', 'make_out', 'all'])
 
 with open('README.md', 'r') as f:
     long_description = f.read()
