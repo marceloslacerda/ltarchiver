@@ -19,13 +19,13 @@ To archive a file use the `store` command. For restore use the `check_and_restor
 ### Store usage
 
 ```shell
-python3 -m ltarchiver.store <source file> <destination_directory>
+ltarchiver-store <source file> <destination_directory>
 ```
 
 ### Restore usage
 
 ```shell
-python3 -m ltarchiver.check_and_restore <backup_file> <destination_directory>
+ltarchiver-restore <backup_file> <destination_directory>
 ```
 
 ## How does it work?
@@ -53,8 +53,24 @@ the user should opt for some kind of RAID setup.
 
 ## Installation instructions
 
-TBA
+1. Clone this repository.
+2. `cd` to the created directory.
+3. Install the program with `pip`.
+
+```shell
+git clone https://github.com/marceloslacerda/ltarchiver.git
+cd ltarchiver
+pip install .
+```
+
+You might want to install this project inside a 
+[virtual environment](https://docs.python.org/3/library/venv.html)
+or to force 
+[pip to do a user install](https://stackoverflow.com/questions/42988977/what-is-the-purpose-of-pip-install-user).
 
 ## License
 
-Licensed under [GPL 2](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
+Licensed under
+[GPL 2](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
+Check the license of [c-ltarchiver](https://github.com/marceloslacerda/c-ltarchiver)
+for more information on [schifra's dependency](https://github.com/ArashPartow/schifra).
