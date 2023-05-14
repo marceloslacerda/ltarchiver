@@ -24,9 +24,9 @@ def main():
     file_ok(backup_file_path)
     print(
         f"This program will check if there are any errors on the file {backup_file_path} and try to restore them if"
-        f" necessary."
+        f" necessary.\nDestination folder: {sys.argv[2]}"
     )
-
+    input("Press ENTER to continue. Press Ctrl+C to abort.")
     file_ok(recordbook_checksum_file_path)
     local_record_is_valid = (
         subprocess.call(shlex.split(f"md5sum -c {recordbook_checksum_file_path}")) == 0
@@ -101,8 +101,10 @@ def main():
         print("File was successfully copied. Goodbye.")
         exit(0)
     elif backup_md5 == record.checksum and original_ecc_checksum != record.ecc_checksum:
-        print("Only the ecc differs from what's stored in the recordbook. The fastest way to go is to call the restore"
-              " routine on this file again.")
+        print(
+            "Only the ecc differs from what's stored in the recordbook. The fastest way to go is to call the restore"
+            " routine on this file again."
+        )
         exit(1)
     else:
         print(

@@ -21,6 +21,11 @@ def main():
     sync_recordbooks(bkp_dir)
     common.file_ok(source)
     source_file_name = source.name
+    print("Backup of: \n", source, "\nTo: ", destination)
+    input("Press ENTER to continue. Press Ctrl+C to abort.")
+    if not destination.is_dir():
+        print(destination, "não é um diretório! Abortando.")
+        exit(1)
     try:
         print("Calculating checksum", datetime.datetime.now())
         md5 = common.get_file_checksum(source)

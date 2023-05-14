@@ -22,7 +22,7 @@ TEST_CHECKSUM_FILE = (
 
 def add_errors_to_file(file_path: pathlib.Path, error_no: int = 1):
     chunksize = 253
-    out_path = pathlib.Path('test_data/temp_file')
+    out_path = pathlib.Path("test_data/temp_file")
     with file_path.open("rb") as f:
         with out_path.open("wb") as out:
             while True:
@@ -40,9 +40,16 @@ def add_errors_to_file(file_path: pathlib.Path, error_no: int = 1):
     common.remove_file(out_path)
 
 
-
 def make_random_file(file_path: pathlib.Path, file_size: int):
-    subprocess.check_call(["dd", "if=/dev/random", "of=" + str(file_path), "count=1", "bs=" + str(file_size)])
+    subprocess.check_call(
+        [
+            "dd",
+            "if=/dev/random",
+            "of=" + str(file_path),
+            "count=1",
+            "bs=" + str(file_size),
+        ]
+    )
 
 
 class MyTestCase(unittest.TestCase):
@@ -87,8 +94,8 @@ class MyTestCase(unittest.TestCase):
             subprocess.check_call,
             shlex.split(
                 f"python3 -m ltarchiver.check_and_restore {TEST_DESTINATION_FILE} {TEST_RECOVERY_FILE}"
-            )
-            )
+            ),
+        )
         new_ecc_md5 = get_file_checksum(TEST_CHECKSUM_FILE)
         self.assertNotEqual(original_ecc_md5, new_ecc_md5)
 
@@ -111,14 +118,14 @@ class MyTestCase(unittest.TestCase):
             subprocess.check_call,
             shlex.split(
                 f"python3 -m ltarchiver.check_and_restore {TEST_DESTINATION_FILE} {TEST_RECOVERY_FILE}"
-            )
+            ),
         )
 
         recovered_md5 = get_file_checksum(TEST_RECOVERY_FILE)
         self.assertNotEqual(original_md5, recovered_md5)
 
     def test_create_and_restore_large(self):
-        make_random_file(common.TEST_SOURCE_FILE, 1024*1024)
+        make_random_file(common.TEST_SOURCE_FILE, 1024 * 1024)
         original_md5 = get_file_checksum(common.TEST_SOURCE_FILE)
         self.assertFalse(TEST_DESTINATION_FILE.exists())
         self.assertFalse(TEST_RECOVERY_FILE.exists())
@@ -139,7 +146,6 @@ class MyTestCase(unittest.TestCase):
         )
         recovered_md5 = get_file_checksum(TEST_RECOVERY_FILE)
         self.assertEqual(original_md5, recovered_md5)
-
 
 
 if __name__ == "__main__":
