@@ -5,6 +5,8 @@ import shutil
 import subprocess
 import shlex
 
+from ltarchiver import common
+
 from ltarchiver.common import (
     error,
     file_ok,
@@ -14,6 +16,7 @@ from ltarchiver.common import (
     get_file_checksum,
     get_records,
     recordbook_dir,
+    record_of_file,
 )
 
 
@@ -26,13 +29,19 @@ def run():
         f"This program will check if there are any errors on the file {backup_file_path} and try to restore them if"
         f" necessary.\nDestination folder: {sys.argv[2]}"
     )
-    input("Press ENTER to continue. Press Ctrl+C to abort.")
+    if not common.DEBUG:
+        input("Press ENTER to continue. Press Ctrl+C to abort.")
     file_ok(recordbook_checksum_file_path)
     local_record_is_valid = (
         subprocess.call(shlex.split(f"md5sum -c {recordbook_checksum_file_path}")) == 0
     )
-    backup_dir = backup_file_path.parent / "ltarchiver"
-    backup_checksum_file = backup_dir / "checksum.txt"
+    dest_uuid, dest_root = common.get_device_uuid_and_root_from_path(backup_file_path)
+    metadata_dir = (
+        backup_file_path.parent / "ltarchiver"
+        if common.DEBUG
+        else dest_root / "ltarchiver"
+    )
+    backup_checksum_file = metadata_dir / "checksum.txt"
 
     backup_record_is_valid = False
     if backup_checksum_file.is_file() and os.access(backup_checksum_file, os.R_OK):
@@ -45,7 +54,7 @@ def run():
         recordbook_path, backup_file_checksum, backup_file_path
     )
     record_in_local = local_record is not None
-    recordbook_backup_path = backup_dir / recordbook_file_name
+    recordbook_backup_path = metadata_dir / recordbook_file_name
     backup_record = record_of_file(
         recordbook_backup_path, backup_file_checksum, backup_file_path
     )
@@ -93,7 +102,7 @@ def run():
         destination_path = pathlib.Path(sys.argv[2]) / backup_file_path.name
     else:
         destination_path = sys.argv[2]
-    original_ecc_file_path = (backup_dir / "ecc") / record.checksum
+    original_ecc_file_path = (metadata_dir / "ecc") / record.checksum
     original_ecc_checksum = get_file_checksum(original_ecc_file_path)
     if backup_md5 == record.checksum and original_ecc_checksum == record.ecc_checksum:
         print("No errors detected on the file. Beginning copy.")
@@ -170,19 +179,6 @@ def try_copy_recordbook(source, destination):
                 exit(1)
             else:
                 pass
-
-
-def record_of_file(
-    recordbook_path: pathlib.Path,
-    backup_file_checksum: str,
-    backup_file_path: pathlib.Path,
-):
-    for record in get_records(recordbook_path):
-        if not record.deleted and (
-            record.checksum == backup_file_checksum
-            or record.file_name == backup_file_path.name
-        ):
-            return record
 
 
 if __name__ == "__main__":

@@ -16,15 +16,19 @@ def store():
     common.recordbook_dir.mkdir(parents=True, exist_ok=True)
     source = pathlib.Path(sys.argv[1]).absolute()
     destination = pathlib.Path(sys.argv[2]).absolute()
-    bkp_dir = destination / "ltarchiver"
+    dest_uuid, dest_root = common.get_device_uuid_and_root_from_path(destination)
+    metadata_dir = (
+        destination / "ltarchiver" if common.DEBUG else dest_root / "ltarchiver"
+    )
     common.file_ok(destination, False)
-    sync_recordbooks(bkp_dir)
+    sync_recordbooks(metadata_dir)
     common.file_ok(source)
     source_file_name = source.name
-    print("Backup of: \n", source, "\nTo: ", destination)
-    input("Press ENTER to continue. Press Ctrl+C to abort.")
+    print(f"Backup of: {source}\nTo: ", destination)
+    if not common.DEBUG:
+        input("Press ENTER to continue. Press Ctrl+C to abort.")
     if not destination.is_dir():
-        print(destination, "não é um diretório! Abortando.")
+        print(destination, "is not a directory! Aborting.")
         exit(1)
     try:
         print("Calculating checksum", datetime.datetime.now())
@@ -35,11 +39,12 @@ def store():
     try:
         file_not_exists(md5, source_file_name, destination / source_file_name)
     except FileNotFoundError:
-        pass  # Triggered when the recordbook is not found. This usually means that it's the first time that ltarchiver
-        # is running
-        # if file were to exist on destination's recordbook it would have been already copied during sync
+        pass
+        # Triggered when the recordbook is not found. This usually means that it's the
+        # first time that ltarchiver is running if file were to exist on destination's
+        # recordbook it would have been already copied during sync
     destination_file_path = destination / source_file_name
-    ecc_dir = bkp_dir / common.ecc_dir_name
+    ecc_dir = metadata_dir / common.ecc_dir_name
     ecc_dir.mkdir(parents=True, exist_ok=True)
     ecc_file_path = ecc_dir / md5
 
@@ -57,7 +62,7 @@ def store():
         timestamp=datetime.datetime.now(),
         file_name=source_file_name,
         source=source,
-        destination=destination,
+        destination=dest_uuid,
         checksum=md5,
         ecc_checksum=common.get_file_checksum(ecc_file_path),
     )
@@ -69,15 +74,15 @@ def store():
     recordbook = common.recordbook_path.open("wt")
     recordbook.write(old_text + common.RECORD_PATH.read_text())
     recordbook.close()
-    shutil.copy(common.recordbook_path, bkp_dir)
+    shutil.copy(common.recordbook_path, metadata_dir)
     recordbook_checksum_file = common.recordbook_checksum_file_path.open("wt")
     out = subprocess.check_output(
         shlex.split(f"md5sum {common.recordbook_path}"), encoding="utf-8"
     )
     recordbook_checksum_file.write(out)
     recordbook_checksum_file.close()
-    pathlib.Path(bkp_dir / "checksum.txt").write_text(
-        out.split(" ", 1)[0] + " " + str(bkp_dir / "recordbook.txt")
+    pathlib.Path(metadata_dir / "checksum.txt").write_text(
+        out.split(" ", 1)[0] + " " + str(metadata_dir / "recordbook.txt")
     )
     os.sync()
     print("All done")
@@ -152,11 +157,13 @@ def sync_recordbooks(bkp_dir: pathlib.Path):
                 dest_recordbook_path, dest_recordbook_checksum_path
             )
 
+
 def run():
     try:
         store()
     except common.LTAError as err_:
         common.error(err_.args[0])
+
 
 if __name__ == "__main__":
     run()

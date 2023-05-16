@@ -10,10 +10,12 @@ from os import access, R_OK, W_OK
 from dataclasses import dataclass
 
 recordbook_file_name = "recordbook.txt"
-if "DEBUG" in sys.argv:
-    recordbook_dir = pathlib.Path.home() / ".ltarchiver"
-else:
+if "DEBUG" in os.environ:
+    DEBUG = True
     recordbook_dir = pathlib.Path("test_data") / ".ltarchiver"
+else:
+    DEBUG = False
+    recordbook_dir = pathlib.Path.home() / ".ltarchiver"
 recordbook_path = recordbook_dir / recordbook_file_name
 recordbook_checksum_file_path = recordbook_dir / "checksum.txt"
 RECORD_PATH = recordbook_dir / "new_transaction.txt"
@@ -83,7 +85,7 @@ class Record:
             f.write(f"Deleted: {self.deleted}\n")
             f.write(f"File-Name: {self.file_name}\n")
             f.write(f"Source: {self.source.absolute()}\n")
-            f.write(f"Destination: {self.destination.absolute()}\n")
+            f.write(f"Destination: {self.destination}\n")
             f.write(f"Bytes-per-chunk: {self.chunksize}\n")
             f.write(f"EC-bytes-per-chunk: {self.eccsize}\n")
             f.write(f"Timestamp: {datetime.datetime.now().isoformat()}\n")
@@ -257,3 +259,49 @@ def mark_record_as_deleted(record_idx: int):
     os.remove(recordbook_path)
     for record in records:
         record.write()
+
+
+def get_device_uuid_and_root_from_path(path: pathlib.Path) -> (str, pathlib.Path):
+    devices_to_uuids = {}
+    for line in subprocess.check_output(
+        ["ls", "-l", "/dev/disk/by-uuid"], encoding="utf-8"
+    ).split("\n")[1:]:
+        if not line.strip():
+            break
+        parts = line.split()
+        devices_to_uuids[
+            (pathlib.Path("/dev/disk/by-uuid") / pathlib.Path(parts[-1])).resolve(
+                strict=True
+            )
+        ] = parts[-3]
+    path_to_devices = {}
+    for line in subprocess.check_output("mount", encoding="utf-8").split("\n"):
+        if not line.strip():
+            break
+        if line.startswith("/dev/"):
+            parts = line.split()
+            path_to_devices[pathlib.Path(parts[2]).resolve(strict=True)] = pathlib.Path(
+                parts[0]
+            ).resolve(strict=True)
+    prev_parent = None
+    parent = path.absolute()
+    while prev_parent != parent:
+        if parent in path_to_devices:
+            return devices_to_uuids[path_to_devices[parent]], parent
+        else:
+            prev_parent = parent
+            parent = parent.parent
+    raise AttributeError(f"Could not find the device associated with the path {path}")
+
+
+def record_of_file(
+    recordbook_path: pathlib.Path,
+    backup_file_checksum: str,
+    backup_file_path: pathlib.Path,
+):
+    for record in get_records(recordbook_path):
+        if not record.deleted and (
+            record.checksum == backup_file_checksum
+            or record.file_name == backup_file_path.name
+        ):
+            return record

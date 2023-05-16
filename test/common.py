@@ -77,9 +77,10 @@ class MyTestCase(unittest.TestCase):
 
         common.input = fake_input
         common.recordbook_path.write_text("text 1")
-        dest_recordbook = pathlib.Path("other_recordbook.txt")
-        dest_recordbook_checksum = pathlib.Path(
-            "test_data/other_recordbook_checksum.txt"
+        TEST_DESTINATION_DIRECTORY.mkdir(parents=True)
+        dest_recordbook = TEST_DESTINATION_DIRECTORY / "other_recordbook.txt"
+        dest_recordbook_checksum = (
+            TEST_DESTINATION_DIRECTORY / "other_recordbook_checksum.txt"
         )
         write_checksum_of_file(dest_recordbook, dest_recordbook_checksum)
         dest_recordbook.write_text("text 2")
@@ -187,6 +188,10 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(record.eccsize, 10)
         self.assertEqual(record.checksum_algorithm, "sha1")
         self.assertEqual(record.checksum, "4321")
+
+    def test_get_device_uuid_from_path(self):
+        print(common.get_device_uuid_and_root_from_path(pathlib.Path("/")))
+        self.assertTrue(True)
 
 
 if __name__ == "__main__":
