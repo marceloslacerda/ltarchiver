@@ -17,9 +17,9 @@ def store():
     source = pathlib.Path(sys.argv[1]).absolute()
     destination = pathlib.Path(sys.argv[2]).absolute()
     dest_uuid, dest_root = common.get_device_uuid_and_root_from_path(destination)
-    metadata_dir = (
-        destination / "ltarchiver" if common.DEBUG else dest_root / "ltarchiver"
-    )
+    if not common.DEBUG:
+        destination = dest_root
+    metadata_dir = destination / "ltarchiver"
     common.file_ok(destination, False)
     sync_recordbooks(metadata_dir)
     common.file_ok(source)
