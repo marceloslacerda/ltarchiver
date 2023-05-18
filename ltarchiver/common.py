@@ -1,4 +1,5 @@
 import datetime
+import enum
 import os
 import pathlib
 import shlex
@@ -34,6 +35,17 @@ class TerminalMenu:
     title: str
     options: typing.Dict[str, typing.Callable]
     with_abort: bool = True
+    REDISPLAY_MENU = "REDISPLAY_MENU"
+
+    @classmethod
+    def get_null_option(cls, fun):
+        """For a callable returns another callable that will not cause the menu to close if chosen as an option."""
+
+        def f():
+            fun()
+            return TerminalMenu.REDISPLAY_MENU
+
+        return f
 
     def __post_init__(self):
         def abort():
@@ -60,15 +72,17 @@ class TerminalMenu:
                 print(f"{s} is not a number between 1 and {option_count - 1}")
                 continue
             else:
-                callbacks[user_input - 1]()
-                break
+                if callbacks[user_input - 1]() == TerminalMenu.REDISPLAY_MENU:
+                    continue
+                else:
+                    break
 
 
 @dataclass
 class Record:
     timestamp: datetime.datetime
     source: pathlib.Path
-    destination: pathlib.Path
+    destination: str
     file_name: str
     checksum: str
     ecc_checksum: str
@@ -92,6 +106,14 @@ class Record:
             f.write(f"Checksum-Algorithm: {self.checksum_algorithm}\n")
             f.write(f"Checksum: {self.checksum}\n")
             f.write(f"ECC-Checksum: {self.ecc_checksum}\n")
+
+    def is_valid(self) -> bool:
+        root = get_root_from_uuid(self.destination)
+        path = root / self.file_name
+        if not path.exists():
+            return False
+        checksum = get_file_checksum(path)
+        return checksum == self.checksum
 
 
 def error(msg: str):
@@ -188,7 +210,7 @@ def get_records(recordbook_path: pathlib.Path) -> [Record]:
             else:
                 yield Record(
                     source=pathlib.Path(source),
-                    destination=pathlib.Path(destination),
+                    destination=destination,
                     file_name=file_name,
                     deleted=deleted,
                     version=version,
@@ -294,6 +316,43 @@ def get_device_uuid_and_root_from_path(path: pathlib.Path) -> (str, pathlib.Path
     raise AttributeError(f"Could not find the device associated with the path {path}")
 
 
+def get_root_from_uuid(uuid: str) -> pathlib.Path:
+    uuid_to_device = {}
+    for line in subprocess.check_output(
+        ["ls", "-l", "/dev/disk/by-uuid"], encoding="utf-8"
+    ).split("\n")[1:]:
+        if not line.strip():
+            break
+        parts = line.split()
+        uuid_to_device[
+            (pathlib.Path("/dev/disk/by-uuid") / pathlib.Path(parts[-3])).resolve(
+                strict=True
+            )
+        ] = parts[-1]
+    device_to_path = {}
+    for line in subprocess.check_output("mount", encoding="utf-8").split("\n"):
+        if not line.strip():
+            break
+        if line.startswith("/dev/"):
+            parts = line.split()
+            device_to_path[pathlib.Path(parts[0]).resolve(strict=True)] = pathlib.Path(
+                parts[2]
+            ).resolve(strict=True)
+    try:
+        device = uuid_to_device[uuid]
+        try:
+            return device_to_path[device]
+        except KeyError as err:
+            raise AttributeError(
+                f"Could not find the root of the device {device}. Is it mounted?"
+            ) from err
+    except KeyError as err:
+        raise AttributeError(
+            f"Could not find the device associated with the UUID {uuid}."
+            f" Is it pluged int?"
+        ) from err
+
+
 def record_of_file(
     recordbook_path: pathlib.Path,
     backup_file_checksum: str,
@@ -305,3 +364,166 @@ def record_of_file(
             or record.file_name == backup_file_path.name
         ):
             return record
+
+
+class RecordBook:
+    class InvalidReason(enum.Enum):
+        DOESNT_EXIST = "Recordbook doesn't exist"
+        NO_CHECKSUM_FILE = "Checksum file doesn't exist"
+        CORRUPTED = "The recordbook file appears to have been corrupted"
+        VALID = ""
+
+    def __init__(self, path: pathlib.Path, checksum_file_path: pathlib.Path):
+        self.path = path
+        self.records: typing.Set[Record] = set(get_records(path))
+        self.checksum_file_path = checksum_file_path
+        self.valid = True
+        self.invalid_reason: RecordBook.InvalidReason = RecordBook.InvalidReason.VALID
+        self.validate()
+
+    def merge(self, other_recordbook: "RecordBook"):
+        self.records = self.records.union(other_recordbook.records)
+        self.write()
+
+    def write(self):
+        remove_file(self.path)
+        for record in self.records:
+            record.write(self.path)
+        subprocess.check_call(
+            f"md5sum {self.path} > {self.checksum_file_path}", shell=True
+        )
+
+    def get_records_by_uuid(self, device_uuid: str) -> typing.Iterable[Record]:
+        for record in self.records:
+            if record.destination == device_uuid:
+                yield record
+
+    def validate(self):
+        if not self.path.exists():
+            self.valid = False
+            self.invalid_reason = RecordBook.InvalidReason.DOESNT_EXIST
+        elif not self.checksum_file_path.exists():
+            self.valid = False
+            self.invalid_reason = RecordBook.InvalidReason.NO_CHECKSUM_FILE
+        elif not self.checksum_file_path.read_text() == get_file_checksum(self.path):
+            self.valid = False
+            self.invalid_reason = RecordBook.InvalidReason.CORRUPTED
+
+
+def remove_file(path: pathlib.Path):
+    try:
+        os.remove(path)
+    except IsADirectoryError:
+        shutil.rmtree(path, ignore_errors=True)
+    except FileNotFoundError:
+        pass
+
+
+def validate_and_recover_recorbooks(
+    home_recordbook: RecordBook, device_recordbook: RecordBook, first_time_ok=False
+):
+    home_recordbook.validate()
+    device_recordbook.validate()
+
+    def copy_recordbook_callback(a: RecordBook, b: RecordBook):
+        def cp():
+            b.records = a.records
+            b.write()
+            b.validate()
+
+        return cp
+
+    if home_recordbook.valid and device_recordbook.valid:
+        return
+    elif not home_recordbook.valid and not device_recordbook.valid:
+
+        def overwrite_checksums():
+            home_recordbook.write()
+            device_recordbook.write()
+
+        if (
+            home_recordbook.invalid_reason == RecordBook.InvalidReason.DOESNT_EXIST
+            and device_recordbook.invalid_reason
+            == RecordBook.InvalidReason.DOESNT_EXIST
+        ):
+            print("No recordbook found.")
+            if not first_time_ok:
+                raise LTAError("Please store a file first with the store command.")
+            else:
+                print("Assuming this is the first time you are running ltarchiver.")
+        else:
+            TerminalMenu(
+                f"Neither the home recordbook {home_recordbook.path}"
+                f"\nnor the device recordbook {device_recordbook}"
+                f"\nmatches its checksum. What do you want to do?",
+                {
+                    "Show contents of home recordbook": TerminalMenu.get_null_option(
+                        lambda: print(home_recordbook.path.read_text())
+                    ),
+                    "Show contents of device recordbook": TerminalMenu.get_null_option(
+                        lambda: print(device_recordbook.path.read_text())
+                    ),
+                    "Overwrite checksum files": overwrite_checksums(),
+                },
+            )
+    elif not home_recordbook.valid:
+        if home_recordbook.invalid_reason == RecordBook.InvalidReason.NO_CHECKSUM_FILE:
+            TerminalMenu(
+                f"No checksum found for the home recordbook: {home_recordbook.path}."
+                f"\nDo you want to recreate it?"
+                f"\nIf you don't have any reason to not do so, you should answer yes.",
+                {
+                    "Yes": (lambda: home_recordbook.write()),
+                },
+            ).show()
+        elif device_recordbook.valid:
+            if home_recordbook.invalid_reason == RecordBook.InvalidReason.DOESNT_EXIST:
+                copy_recordbook_callback(device_recordbook, home_recordbook)()
+                return
+
+            elif home_recordbook.invalid_reason == RecordBook.InvalidReason.CORRUPTED:
+                TerminalMenu(
+                    f"The home recordbook's checksum doesn't correspond to its contents': {home_recordbook.path}."
+                    f"\nHowever the device recordbook is valid: {device_recordbook.path}"
+                    f"\nDo you want to copy the device recordbook content into the home recordbook?",
+                    {
+                        "Show diff": TerminalMenu.get_null_option(
+                            lambda: subprocess.check_call(
+                                ["diff", home_recordbook.path, device_recordbook.path]
+                            )
+                        ),
+                        "Yes": copy_recordbook_callback(
+                            device_recordbook, home_recordbook
+                        ),
+                    },
+                ).show()
+    else:
+        # only home_recordbook is valid
+        if device_recordbook.invalid_reason == RecordBook.InvalidReason.DOESNT_EXIST:
+            copy_recordbook_callback(home_recordbook, device_recordbook)
+        elif (
+            device_recordbook.invalid_reason
+            == RecordBook.InvalidReason.NO_CHECKSUM_FILE
+        ):
+            TerminalMenu(
+                f"No checksum found for the device recordbook: {device_recordbook.path}."
+                f"\nDo you want to recreate it?"
+                f"\nIf you don't have any reason to not do so, you should answer yes.",
+                {
+                    "Yes": (lambda: device_recordbook.write()),
+                },
+            ).show()
+        elif device_recordbook.invalid_reason == RecordBook.InvalidReason.CORRUPTED:
+            TerminalMenu(
+                f"The device recordbook's checksum doesn't correspond to its contents': {device_recordbook.path}."
+                f"\nHowever the home recordbook is valid: {home_recordbook.path}"
+                f"\nDo you want to copy the home recordbook content into the device recordbook?",
+                {
+                    "Show diff": TerminalMenu.get_null_option(
+                        lambda: subprocess.check_call(
+                            ["diff", home_recordbook.path, device_recordbook.path]
+                        )
+                    ),
+                    "Yes": copy_recordbook_callback(home_recordbook, device_recordbook),
+                },
+            ).show()

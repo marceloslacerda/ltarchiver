@@ -1,4 +1,3 @@
-import os
 import pathlib
 import shutil
 import subprocess
@@ -10,15 +9,6 @@ TEST_FILE_CHECKSUM = "5eb63bbbe01eeed093cb22bb8f5acdc3"
 TEST_SOURCE_FILE = pathlib.Path("test_data/test_source")
 TEST_RECORD_FILE = pathlib.Path("test_data/test_record_file")
 TEST_DESTINATION_DIRECTORY = pathlib.Path("test_data/test_destination_dir")
-
-
-def remove_file(path: pathlib.Path):
-    try:
-        os.remove(path)
-    except IsADirectoryError:
-        shutil.rmtree(path, ignore_errors=True)
-    except FileNotFoundError:
-        pass
 
 
 def write_test_recorbook(path: pathlib.Path = TEST_RECORD_FILE):

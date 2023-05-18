@@ -74,7 +74,7 @@ def run():
                     try_copy_recordbook(recordbook_backup_path, recordbook_path)
                 else:
                     input(
-                        "The file was found in both recordbooks but they don't match their checksums. Press CTR+C to"
+                        "The file was found in both recordbooks but they (the recordbooks) don't match their checksums. Press CTR+C to"
                         " abort or Enter to try continuing with the restoration."
                     )
             else:

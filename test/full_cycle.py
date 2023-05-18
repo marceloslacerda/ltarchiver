@@ -7,6 +7,8 @@ import subprocess
 import shlex
 import random
 import tempfile
+
+import ltarchiver.common
 from test import common
 from ltarchiver.common import get_file_checksum
 
@@ -37,7 +39,7 @@ def add_errors_to_file(file_path: pathlib.Path, error_no: int = 1):
                 out.write(content)
     os.sync()
     shutil.copy(str(out_path), str(file_path))
-    common.remove_file(out_path)
+    ltarchiver.common.remove_file(out_path)
 
 
 def make_random_file(file_path: pathlib.Path, file_size: int):
@@ -55,8 +57,8 @@ def make_random_file(file_path: pathlib.Path, file_size: int):
 class MyTestCase(unittest.TestCase):
     def setUp(self) -> None:
         common.setup_test_files()
-        common.remove_file(TEST_DESTINATION_DIRECTORY)
-        common.remove_file(TEST_RECOVERY_FILE)
+        ltarchiver.common.remove_file(TEST_DESTINATION_DIRECTORY)
+        ltarchiver.common.remove_file(TEST_RECOVERY_FILE)
 
     def test_create_and_restore_small(self):
         original_md5 = get_file_checksum(common.TEST_SOURCE_FILE)

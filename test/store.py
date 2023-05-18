@@ -6,9 +6,9 @@ from test.common import (
     TEST_FILE_CHECKSUM,
     TEST_SOURCE_FILE,
     write_test_recorbook,
-    remove_file,
     setup_test_files,
 )
+from ltarchiver.common import remove_file
 
 
 class MyTestCase(unittest.TestCase):
