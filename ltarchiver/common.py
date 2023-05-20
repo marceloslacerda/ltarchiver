@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import typing
+import psutil
 from os import access, R_OK, W_OK
 from dataclasses import dataclass
 
@@ -28,6 +29,14 @@ eccsize = 16  # bytes
 class LTAError(Exception):
     def __init__(self, error_message):
         self.args = (error_message,)
+
+class Validation(enum.Enum):
+    ECC_DOESNT_EXIST = "The ecc of the file doesn't exist"
+    ECC_CORRUPTED = "The ecc of the file was corrupted"
+    DOESNT_EXIST = "The file doesn't exist"
+    NO_CHECKSUM_FILE = "The Checksum file doesn't exist"
+    CORRUPTED = "The file appears to have been corrupted"
+    VALID = "No errors found"
 
 
 @dataclass
@@ -107,14 +116,29 @@ class Record:
             f.write(f"Checksum: {self.checksum}\n")
             f.write(f"ECC-Checksum: {self.ecc_checksum}\n")
 
-    def is_valid(self) -> bool:
+    def get_validation(self) -> Validation:
+        """True if file exists and checksum matches"""
         root = get_root_from_uuid(self.destination)
-        path = root / self.file_name
+        path = self.file_path(root)
         if not path.exists():
-            return False
+            return Validation.DOESNT_EXIST
         checksum = get_file_checksum(path)
-        return checksum == self.checksum
+        if checksum != self.checksum:
+            return Validation.CORRUPTED
 
+        ecc_file_path = self.ecc_file_path(root)
+        if not ecc_file_path.exists():
+            return Validation.ECC_DOESNT_EXIST
+        checksum = get_file_checksum(ecc_file_path)
+        if checksum != self.ecc_checksum:
+            return Validation.ECC_CORRUPTED
+        return Validation.VALID
+
+    def file_path(self, root: pathlib.Path):
+        return root / self.file_name
+
+    def ecc_file_path(self, root: pathlib.Path) -> pathlib.Path:
+        return root / "ltarchiver" / self.checksum
 
 def error(msg: str):
     print(msg, file=sys.stderr)
@@ -249,7 +273,7 @@ def get_records(recordbook_path: pathlib.Path) -> [Record]:
     else:
         yield Record(
             source=pathlib.Path(source),
-            destination=pathlib.Path(destination),
+            destination=destination,
             file_name=file_name,
             deleted=deleted,
             version=version,
@@ -318,26 +342,11 @@ def get_device_uuid_and_root_from_path(path: pathlib.Path) -> (str, pathlib.Path
 
 def get_root_from_uuid(uuid: str) -> pathlib.Path:
     uuid_to_device = {}
-    for line in subprocess.check_output(
-        ["ls", "-l", "/dev/disk/by-uuid"], encoding="utf-8"
-    ).split("\n")[1:]:
-        if not line.strip():
-            break
-        parts = line.split()
-        uuid_to_device[
-            (pathlib.Path("/dev/disk/by-uuid") / pathlib.Path(parts[-3])).resolve(
-                strict=True
-            )
-        ] = parts[-1]
+    for p in pathlib.Path("/dev/disk/by-uuid").iterdir():
+        uuid_to_device[p.name] = p.resolve()
     device_to_path = {}
-    for line in subprocess.check_output("mount", encoding="utf-8").split("\n"):
-        if not line.strip():
-            break
-        if line.startswith("/dev/"):
-            parts = line.split()
-            device_to_path[pathlib.Path(parts[0]).resolve(strict=True)] = pathlib.Path(
-                parts[2]
-            ).resolve(strict=True)
+    for partition in psutil.disk_partitions():
+        device_to_path[pathlib.Path(partition.device)] = pathlib.Path(partition.mountpoint)
     try:
         device = uuid_to_device[uuid]
         try:
@@ -365,20 +374,14 @@ def record_of_file(
         ):
             return record
 
-
 class RecordBook:
-    class InvalidReason(enum.Enum):
-        DOESNT_EXIST = "Recordbook doesn't exist"
-        NO_CHECKSUM_FILE = "Checksum file doesn't exist"
-        CORRUPTED = "The recordbook file appears to have been corrupted"
-        VALID = ""
 
     def __init__(self, path: pathlib.Path, checksum_file_path: pathlib.Path):
         self.path = path
         self.records: typing.Set[Record] = set(get_records(path))
         self.checksum_file_path = checksum_file_path
         self.valid = True
-        self.invalid_reason: RecordBook.InvalidReason = RecordBook.InvalidReason.VALID
+        self.invalid_reason: Validation = Validation.VALID
         self.validate()
 
     def merge(self, other_recordbook: "RecordBook"):
@@ -401,13 +404,13 @@ class RecordBook:
     def validate(self):
         if not self.path.exists():
             self.valid = False
-            self.invalid_reason = RecordBook.InvalidReason.DOESNT_EXIST
+            self.invalid_reason = Validation.DOESNT_EXIST
         elif not self.checksum_file_path.exists():
             self.valid = False
-            self.invalid_reason = RecordBook.InvalidReason.NO_CHECKSUM_FILE
+            self.invalid_reason = Validation.NO_CHECKSUM_FILE
         elif not self.checksum_file_path.read_text() == get_file_checksum(self.path):
             self.valid = False
-            self.invalid_reason = RecordBook.InvalidReason.CORRUPTED
+            self.invalid_reason = Validation.CORRUPTED
 
 
 def remove_file(path: pathlib.Path):
@@ -442,9 +445,9 @@ def validate_and_recover_recorbooks(
             device_recordbook.write()
 
         if (
-            home_recordbook.invalid_reason == RecordBook.InvalidReason.DOESNT_EXIST
+            home_recordbook.invalid_reason == Validation.DOESNT_EXIST
             and device_recordbook.invalid_reason
-            == RecordBook.InvalidReason.DOESNT_EXIST
+            == Validation.DOESNT_EXIST
         ):
             print("No recordbook found.")
             if not first_time_ok:
@@ -452,6 +455,7 @@ def validate_and_recover_recorbooks(
             else:
                 print("Assuming this is the first time you are running ltarchiver.")
         else:
+            # todo recordbooks can have different reasons for being invalid
             TerminalMenu(
                 f"Neither the home recordbook {home_recordbook.path}"
                 f"\nnor the device recordbook {device_recordbook}"
@@ -467,7 +471,7 @@ def validate_and_recover_recorbooks(
                 },
             )
     elif not home_recordbook.valid:
-        if home_recordbook.invalid_reason == RecordBook.InvalidReason.NO_CHECKSUM_FILE:
+        if home_recordbook.invalid_reason == Validation.NO_CHECKSUM_FILE:
             TerminalMenu(
                 f"No checksum found for the home recordbook: {home_recordbook.path}."
                 f"\nDo you want to recreate it?"
@@ -477,11 +481,11 @@ def validate_and_recover_recorbooks(
                 },
             ).show()
         elif device_recordbook.valid:
-            if home_recordbook.invalid_reason == RecordBook.InvalidReason.DOESNT_EXIST:
+            if home_recordbook.invalid_reason == Validation.DOESNT_EXIST:
                 copy_recordbook_callback(device_recordbook, home_recordbook)()
                 return
 
-            elif home_recordbook.invalid_reason == RecordBook.InvalidReason.CORRUPTED:
+            elif home_recordbook.invalid_reason == Validation.CORRUPTED:
                 TerminalMenu(
                     f"The home recordbook's checksum doesn't correspond to its contents': {home_recordbook.path}."
                     f"\nHowever the device recordbook is valid: {device_recordbook.path}"
@@ -499,11 +503,11 @@ def validate_and_recover_recorbooks(
                 ).show()
     else:
         # only home_recordbook is valid
-        if device_recordbook.invalid_reason == RecordBook.InvalidReason.DOESNT_EXIST:
+        if device_recordbook.invalid_reason == Validation.DOESNT_EXIST:
             copy_recordbook_callback(home_recordbook, device_recordbook)
         elif (
             device_recordbook.invalid_reason
-            == RecordBook.InvalidReason.NO_CHECKSUM_FILE
+            == Validation.NO_CHECKSUM_FILE
         ):
             TerminalMenu(
                 f"No checksum found for the device recordbook: {device_recordbook.path}."
@@ -513,7 +517,7 @@ def validate_and_recover_recorbooks(
                     "Yes": (lambda: device_recordbook.write()),
                 },
             ).show()
-        elif device_recordbook.invalid_reason == RecordBook.InvalidReason.CORRUPTED:
+        elif device_recordbook.invalid_reason == Validation.CORRUPTED:
             TerminalMenu(
                 f"The device recordbook's checksum doesn't correspond to its contents': {device_recordbook.path}."
                 f"\nHowever the home recordbook is valid: {home_recordbook.path}"

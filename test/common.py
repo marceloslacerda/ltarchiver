@@ -6,9 +6,10 @@ from ltarchiver import common
 import datetime
 
 TEST_FILE_CHECKSUM = "5eb63bbbe01eeed093cb22bb8f5acdc3"
-TEST_SOURCE_FILE = pathlib.Path("test_data/test_source")
-TEST_RECORD_FILE = pathlib.Path("test_data/test_record_file")
-TEST_DESTINATION_DIRECTORY = pathlib.Path("test_data/test_destination_dir")
+TEST_DIRECTORY = pathlib.Path("test_data")
+TEST_SOURCE_FILE = TEST_DIRECTORY / "test_source"
+TEST_RECORD_FILE = TEST_DIRECTORY / "test_record_file"
+TEST_DESTINATION_DIRECTORY = TEST_DIRECTORY / "test_destination_dir"
 
 
 def write_test_recorbook(path: pathlib.Path = TEST_RECORD_FILE):
@@ -124,7 +125,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(record.deleted, False)
         self.assertEqual(record.file_name, "test_source")
         self.assertEqual(record.source, TEST_SOURCE_FILE.absolute())
-        self.assertEqual(record.destination, TEST_DESTINATION_DIRECTORY.absolute())
+        self.assertEqual(record.destination, str(TEST_DESTINATION_DIRECTORY.absolute()))
         self.assertEqual(record.chunksize, common.chunksize)
         self.assertEqual(record.eccsize, common.eccsize)
         self.assertEqual(record.checksum_algorithm, "md5")
@@ -161,7 +162,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(record.deleted, False)
         self.assertEqual(record.file_name, "test_source")
         self.assertEqual(record.source, TEST_SOURCE_FILE.absolute())
-        self.assertEqual(record.destination, TEST_DESTINATION_DIRECTORY.absolute())
+        self.assertEqual(record.destination, str(TEST_DESTINATION_DIRECTORY.absolute()))
         self.assertEqual(record.chunksize, common.chunksize)
         self.assertEqual(record.eccsize, common.eccsize)
         self.assertEqual(record.checksum_algorithm, "md5")
@@ -183,6 +184,26 @@ class MyTestCase(unittest.TestCase):
         print(common.get_device_uuid_and_root_from_path(pathlib.Path("/")))
         self.assertTrue(True)
 
+    def test_record_file_path(self):
+        write_test_recorbook()
+        record = list(common.get_records(TEST_RECORD_FILE))[0]
+        self.assertEqual(record.file_path(TEST_DIRECTORY), TEST_SOURCE_FILE)
+
+    def test_ecc_file_path(self):
+        write_test_recorbook()
+        record = list(common.get_records(TEST_RECORD_FILE))[0]
+        self.assertEqual(record.ecc_file_path(TEST_DIRECTORY), TEST_DIRECTORY / "ltarchiver" / TEST_FILE_CHECKSUM)
+
+    def test_get_validation(self):
+        write_test_recorbook()
+        record = list(common.get_records(TEST_RECORD_FILE))[0]
+        self.assertEqual(record.get_validation(), common.Validation.VALID)
+
+    def test_get_root_from_uuid(self):
+        # just test that it doesn't fail
+        uuid, root_first = common.get_device_uuid_and_root_from_path(pathlib.Path("/home"))
+        root_second = common.get_root_from_uuid(uuid)
+        self.assertEqual(root_first, root_second)
 
 if __name__ == "__main__":
     unittest.main()
