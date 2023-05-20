@@ -192,16 +192,128 @@ class MyTestCase(unittest.TestCase):
     def test_ecc_file_path(self):
         write_test_recorbook()
         record = list(common.get_records(TEST_RECORD_FILE))[0]
-        self.assertEqual(record.ecc_file_path(TEST_DIRECTORY), TEST_DIRECTORY / "ltarchiver" / TEST_FILE_CHECKSUM)
+        self.assertEqual(record.ecc_file_path(TEST_DIRECTORY), TEST_DIRECTORY / "ltarchiver" / "ecc" / TEST_FILE_CHECKSUM)
 
-    def test_get_validation(self):
-        write_test_recorbook()
-        record = list(common.get_records(TEST_RECORD_FILE))[0]
+    def test_get_validation_valid(self):
+        uuid, _ = common.get_device_uuid_and_root_from_path(pathlib.Path("."))
+        record = common.Record(
+            datetime.datetime.now(),
+            TEST_SOURCE_FILE,
+            uuid,
+            TEST_SOURCE_FILE.name,
+            TEST_FILE_CHECKSUM,
+            TEST_FILE_CHECKSUM
+        )
+        ecc_path = record.ecc_file_path(TEST_DIRECTORY)
+        ecc_path.parent.mkdir(parents=True)
+        # copy necessary for the checksums to match
+        shutil.copy(TEST_SOURCE_FILE, ecc_path)
+        old_method = common.get_root_from_uuid
+
+        def test_get(uuid_: str):
+            return TEST_DIRECTORY
+
+        common.get_root_from_uuid = test_get
         self.assertEqual(record.get_validation(), common.Validation.VALID)
+        common.get_root_from_uuid = old_method
+
+    def test_get_validation_ecc_corrupted(self):
+        uuid, _ = common.get_device_uuid_and_root_from_path(pathlib.Path("."))
+        record = common.Record(
+            datetime.datetime.now(),
+            TEST_SOURCE_FILE,
+            uuid,
+            TEST_SOURCE_FILE.name,
+            TEST_FILE_CHECKSUM,
+            "asdf"
+        )
+        ecc_path = record.ecc_file_path(TEST_DIRECTORY)
+        ecc_path.parent.mkdir(parents=True)
+        # copy necessary for the checksums to match
+        shutil.copy(TEST_SOURCE_FILE, ecc_path)
+        old_method = common.get_root_from_uuid
+
+        def test_get(uuid_: str):
+            return TEST_DIRECTORY
+
+        common.get_root_from_uuid = test_get
+        self.assertEqual(record.get_validation(), common.Validation.ECC_CORRUPTED)
+        common.get_root_from_uuid = old_method
+
+    def test_get_validation_corrupted(self):
+        uuid, _ = common.get_device_uuid_and_root_from_path(pathlib.Path("."))
+        record = common.Record(
+            datetime.datetime.now(),
+            TEST_SOURCE_FILE,
+            uuid,
+            TEST_SOURCE_FILE.name,
+            "asdf",
+            TEST_FILE_CHECKSUM
+        )
+        ecc_path = record.ecc_file_path(TEST_DIRECTORY)
+        ecc_path.parent.mkdir(parents=True)
+        # copy necessary for the checksums to match
+        shutil.copy(TEST_SOURCE_FILE, ecc_path)
+        old_method = common.get_root_from_uuid
+
+        def test_get(uuid_: str):
+            return TEST_DIRECTORY
+
+        common.get_root_from_uuid = test_get
+        self.assertEqual(record.get_validation(), common.Validation.CORRUPTED)
+        common.get_root_from_uuid = old_method
+
+    def test_get_validation_doesnt_exist(self):
+        uuid, _ = common.get_device_uuid_and_root_from_path(pathlib.Path("."))
+        record = common.Record(
+            datetime.datetime.now(),
+            TEST_SOURCE_FILE,
+            uuid,
+            TEST_SOURCE_FILE.name,
+            TEST_FILE_CHECKSUM,
+            TEST_FILE_CHECKSUM
+        )
+        ecc_path = record.ecc_file_path(TEST_DIRECTORY)
+        ecc_path.parent.mkdir(parents=True)
+        # copy necessary for the checksums to match
+        shutil.copy(TEST_SOURCE_FILE, ecc_path)
+        old_method = common.get_root_from_uuid
+
+        def test_get(uuid_: str):
+            return TEST_DIRECTORY
+
+        common.get_root_from_uuid = test_get
+        common.remove_file(TEST_SOURCE_FILE)
+        self.assertEqual(record.get_validation(), common.Validation.DOESNT_EXIST)
+        common.get_root_from_uuid = old_method
+
+    def test_get_validation_ecc_doesnt_exist(self):
+        uuid, _ = common.get_device_uuid_and_root_from_path(pathlib.Path("."))
+        record = common.Record(
+            datetime.datetime.now(),
+            TEST_SOURCE_FILE,
+            uuid,
+            TEST_SOURCE_FILE.name,
+            TEST_FILE_CHECKSUM,
+            TEST_FILE_CHECKSUM
+        )
+        ecc_path = record.ecc_file_path(TEST_DIRECTORY)
+        ecc_path.parent.mkdir(parents=True)
+        # copy necessary for the checksums to match
+        shutil.copy(TEST_SOURCE_FILE, ecc_path)
+        old_method = common.get_root_from_uuid
+
+        def test_get(uuid_: str):
+            return TEST_DIRECTORY
+
+        common.get_root_from_uuid = test_get
+        common.remove_file(ecc_path)
+        self.assertEqual(record.get_validation(), common.Validation.ECC_DOESNT_EXIST)
+        common.get_root_from_uuid = old_method
 
     def test_get_root_from_uuid(self):
         # just test that it doesn't fail
-        uuid, root_first = common.get_device_uuid_and_root_from_path(pathlib.Path("/home"))
+        uuid, root_first = common.get_device_uuid_and_root_from_path(pathlib.Path("."))
         root_second = common.get_root_from_uuid(uuid)
         self.assertEqual(root_first, root_second)
 
