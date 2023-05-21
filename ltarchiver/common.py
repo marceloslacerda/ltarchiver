@@ -30,6 +30,7 @@ class LTAError(Exception):
     def __init__(self, error_message):
         self.args = (error_message,)
 
+
 class Validation(enum.Enum):
     ECC_DOESNT_EXIST = "The ecc of the file doesn't exist"
     ECC_CORRUPTED = "The ecc of the file was corrupted"
@@ -139,6 +140,7 @@ class Record:
 
     def ecc_file_path(self, root: pathlib.Path) -> pathlib.Path:
         return root / "ltarchiver" / ecc_dir_name / self.checksum
+
 
 def error(msg: str):
     print(msg, file=sys.stderr)
@@ -346,7 +348,9 @@ def get_root_from_uuid(uuid: str) -> pathlib.Path:
         uuid_to_device[p.name] = p.resolve()
     device_to_path = {}
     for partition in psutil.disk_partitions():
-        device_to_path[pathlib.Path(partition.device)] = pathlib.Path(partition.mountpoint)
+        device_to_path[pathlib.Path(partition.device)] = pathlib.Path(
+            partition.mountpoint
+        )
     try:
         device = uuid_to_device[uuid]
         try:
@@ -374,8 +378,8 @@ def record_of_file(
         ):
             return record
 
-class RecordBook:
 
+class RecordBook:
     def __init__(self, path: pathlib.Path, checksum_file_path: pathlib.Path):
         self.path = path
         self.records: typing.Set[Record] = set(get_records(path))
@@ -446,8 +450,7 @@ def validate_and_recover_recorbooks(
 
         if (
             home_recordbook.invalid_reason == Validation.DOESNT_EXIST
-            and device_recordbook.invalid_reason
-            == Validation.DOESNT_EXIST
+            and device_recordbook.invalid_reason == Validation.DOESNT_EXIST
         ):
             print("No recordbook found.")
             if not first_time_ok:
@@ -505,10 +508,7 @@ def validate_and_recover_recorbooks(
         # only home_recordbook is valid
         if device_recordbook.invalid_reason == Validation.DOESNT_EXIST:
             copy_recordbook_callback(home_recordbook, device_recordbook)
-        elif (
-            device_recordbook.invalid_reason
-            == Validation.NO_CHECKSUM_FILE
-        ):
+        elif device_recordbook.invalid_reason == Validation.NO_CHECKSUM_FILE:
             TerminalMenu(
                 f"No checksum found for the device recordbook: {device_recordbook.path}."
                 f"\nDo you want to recreate it?"

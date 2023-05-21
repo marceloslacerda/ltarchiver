@@ -25,7 +25,10 @@ def refresh(device_uuid: str, device_root: pathlib.Path):
         recovery_file_path = original_file_path.with_stem(".rec")
         recovery_ecc_path = original_ecc_path.with_stem(".rec")
         validation = record.get_validation()
-        if validation == common.Validation.DOESNT_EXIST or validation == common.Validation.ECC_DOESNT_EXIST:
+        if (
+            validation == common.Validation.DOESNT_EXIST
+            or validation == common.Validation.ECC_DOESNT_EXIST
+        ):
             print(f"{validation}. Skipping this file.")
             continue
         elif validation != common.Validation.VALID:

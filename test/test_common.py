@@ -3,10 +3,18 @@ import shutil
 import unittest
 import datetime
 
-from ltarchiver import  common
+from ltarchiver import common
 
-from test import TEST_FILE_CHECKSUM, TEST_DIRECTORY, TEST_SOURCE_FILE, TEST_RECORD_FILE, TEST_DESTINATION_DIRECTORY, \
-    write_test_recorbook, write_checksum_of_file, setup_test_files
+from test import (
+    TEST_FILE_CHECKSUM,
+    TEST_DIRECTORY,
+    TEST_SOURCE_FILE,
+    TEST_RECORD_FILE,
+    TEST_DESTINATION_DIRECTORY,
+    write_test_recorbook,
+    write_checksum_of_file,
+    setup_test_files,
+)
 
 
 class MyTestCase(unittest.TestCase):
@@ -42,7 +50,7 @@ class MyTestCase(unittest.TestCase):
         TEST_DESTINATION_DIRECTORY.mkdir(parents=True)
         dest_recordbook = TEST_DESTINATION_DIRECTORY / "other_recordbook.txt"
         dest_recordbook_checksum = (
-                TEST_DESTINATION_DIRECTORY / "other_recordbook_checksum.txt"
+            TEST_DESTINATION_DIRECTORY / "other_recordbook_checksum.txt"
         )
         write_checksum_of_file(dest_recordbook, dest_recordbook_checksum)
         dest_recordbook.write_text("text 2")
@@ -163,7 +171,10 @@ class MyTestCase(unittest.TestCase):
     def test_ecc_file_path(self):
         write_test_recorbook()
         record = list(common.get_records(TEST_RECORD_FILE))[0]
-        self.assertEqual(record.ecc_file_path(TEST_DIRECTORY), TEST_DIRECTORY / "ltarchiver" / "ecc" / TEST_FILE_CHECKSUM)
+        self.assertEqual(
+            record.ecc_file_path(TEST_DIRECTORY),
+            TEST_DIRECTORY / "ltarchiver" / "ecc" / TEST_FILE_CHECKSUM,
+        )
 
     def test_get_validation_valid(self):
         uuid, _ = common.get_device_uuid_and_root_from_path(pathlib.Path("."))
@@ -173,7 +184,7 @@ class MyTestCase(unittest.TestCase):
             uuid,
             TEST_SOURCE_FILE.name,
             TEST_FILE_CHECKSUM,
-            TEST_FILE_CHECKSUM
+            TEST_FILE_CHECKSUM,
         )
         ecc_path = record.ecc_file_path(TEST_DIRECTORY)
         ecc_path.parent.mkdir(parents=True)
@@ -196,7 +207,7 @@ class MyTestCase(unittest.TestCase):
             uuid,
             TEST_SOURCE_FILE.name,
             TEST_FILE_CHECKSUM,
-            "asdf"
+            "asdf",
         )
         ecc_path = record.ecc_file_path(TEST_DIRECTORY)
         ecc_path.parent.mkdir(parents=True)
@@ -219,7 +230,7 @@ class MyTestCase(unittest.TestCase):
             uuid,
             TEST_SOURCE_FILE.name,
             "asdf",
-            TEST_FILE_CHECKSUM
+            TEST_FILE_CHECKSUM,
         )
         ecc_path = record.ecc_file_path(TEST_DIRECTORY)
         ecc_path.parent.mkdir(parents=True)
@@ -242,7 +253,7 @@ class MyTestCase(unittest.TestCase):
             uuid,
             TEST_SOURCE_FILE.name,
             TEST_FILE_CHECKSUM,
-            TEST_FILE_CHECKSUM
+            TEST_FILE_CHECKSUM,
         )
         ecc_path = record.ecc_file_path(TEST_DIRECTORY)
         ecc_path.parent.mkdir(parents=True)
@@ -266,7 +277,7 @@ class MyTestCase(unittest.TestCase):
             uuid,
             TEST_SOURCE_FILE.name,
             TEST_FILE_CHECKSUM,
-            TEST_FILE_CHECKSUM
+            TEST_FILE_CHECKSUM,
         )
         ecc_path = record.ecc_file_path(TEST_DIRECTORY)
         ecc_path.parent.mkdir(parents=True)
@@ -287,6 +298,7 @@ class MyTestCase(unittest.TestCase):
         uuid, root_first = common.get_device_uuid_and_root_from_path(pathlib.Path("."))
         root_second = common.get_root_from_uuid(uuid)
         self.assertEqual(root_first, root_second)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -13,9 +13,9 @@ TEST_DESTINATION_DIRECTORY = pathlib.Path("test_destination")
 TEST_DESTINATION_FILE = TEST_DESTINATION_DIRECTORY / test.TEST_SOURCE_FILE.name
 TEST_RECOVERY_FILE = pathlib.Path("restore_dir/test_source")
 TEST_CHECKSUM_FILE = (
-        TEST_DESTINATION_DIRECTORY
-        / pathlib.Path("ltarchiver/ecc/")
-        / test.TEST_FILE_CHECKSUM
+    TEST_DESTINATION_DIRECTORY
+    / pathlib.Path("ltarchiver/ecc/")
+    / test.TEST_FILE_CHECKSUM
 )
 
 
