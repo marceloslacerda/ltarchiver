@@ -2,12 +2,7 @@ import pathlib
 import subprocess
 import unittest
 from ltarchiver import common, store
-from test.common import (
-    TEST_FILE_CHECKSUM,
-    TEST_SOURCE_FILE,
-    write_test_recorbook,
-    setup_test_files,
-)
+from test import TEST_FILE_CHECKSUM, TEST_SOURCE_FILE, write_test_recorbook, setup_test_files
 from ltarchiver.common import remove_file
 
 
