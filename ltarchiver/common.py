@@ -11,13 +11,15 @@ import psutil
 from os import access, R_OK, W_OK
 from dataclasses import dataclass
 
+METADATA_DIR_NAME = ".ltarchiver"
+
 recordbook_file_name = "recordbook.txt"
 if "DEBUG" in os.environ:
     DEBUG = True
-    recordbook_dir = pathlib.Path("test_data") / ".ltarchiver"
+    recordbook_dir = pathlib.Path("test_data") / METADATA_DIR_NAME
 else:
     DEBUG = False
-    recordbook_dir = pathlib.Path.home() / ".ltarchiver"
+    recordbook_dir = pathlib.Path.home() / METADATA_DIR_NAME
 recordbook_path = recordbook_dir / recordbook_file_name
 recordbook_checksum_file_path = recordbook_dir / "checksum.txt"
 RECORD_PATH = recordbook_dir / "new_transaction.txt"
@@ -88,7 +90,7 @@ class TerminalMenu:
                     break
 
 
-@dataclass
+@dataclass(frozen=True)
 class Record:
     timestamp: datetime.datetime
     source: pathlib.Path

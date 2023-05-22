@@ -97,7 +97,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_get_records(self):
         write_test_recorbook()
-        records = list(common.get_records(TEST_RECORD_FILE))
+        records = list(common.get_records(common.recordbook_path))
         self.assertEqual(len(records), 1)
         record = records[0]
         self.assertEqual(record.version, 1)
@@ -165,12 +165,12 @@ class MyTestCase(unittest.TestCase):
 
     def test_record_file_path(self):
         write_test_recorbook()
-        record = list(common.get_records(TEST_RECORD_FILE))[0]
+        record = list(common.get_records(common.recordbook_path))[0]
         self.assertEqual(record.file_path(TEST_DIRECTORY), TEST_SOURCE_FILE)
 
     def test_ecc_file_path(self):
         write_test_recorbook()
-        record = list(common.get_records(TEST_RECORD_FILE))[0]
+        record = list(common.get_records(common.recordbook_path))[0]
         self.assertEqual(
             record.ecc_file_path(TEST_DIRECTORY),
             TEST_DIRECTORY / "ltarchiver" / "ecc" / TEST_FILE_CHECKSUM,

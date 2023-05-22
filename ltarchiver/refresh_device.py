@@ -7,18 +7,18 @@ from ltarchiver import common
 
 def refresh(device_uuid: str, device_root: pathlib.Path):
     print(f"Attempting to refresh the device {device_uuid}.")
-    device_metadata_dir = device_root / "ltarchiver"
-    device_recorbook = common.RecordBook(
+    device_metadata_dir = device_root / common.METADATA_DIR_NAME
+    device_recordbook = common.RecordBook(
         device_metadata_dir / common.recordbook_file_name,
         device_metadata_dir / "checksum.txt",
     )
     home_recordbook = common.RecordBook(
         common.recordbook_path, common.recordbook_checksum_file_path
     )
-    common.validate_and_recover_recorbooks(home_recordbook, device_recorbook)
-    home_recordbook.merge(device_recorbook)
-    device_recorbook.records = home_recordbook.records
-    device_recorbook.write()
+    common.validate_and_recover_recorbooks(home_recordbook, device_recordbook)
+    home_recordbook.merge(device_recordbook)
+    device_recordbook.records = home_recordbook.records
+    device_recordbook.write()
     for record in home_recordbook.get_records_by_uuid(device_uuid):
         original_file_path = record.file_path(device_root)
         original_ecc_path = record.file_path(device_root)

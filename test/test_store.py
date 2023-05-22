@@ -1,6 +1,8 @@
 import pathlib
 import subprocess
 import unittest
+
+import test
 from ltarchiver import common, store
 from test import (
     TEST_FILE_CHECKSUM,
@@ -11,9 +13,7 @@ from test import (
 from ltarchiver.common import remove_file
 
 
-class MyTestCase(unittest.TestCase):
-    def setUp(self) -> None:
-        setup_test_files()
+class MyTestCase(test.BaseTestCase):
 
     def test_file_not_exists_no_recordbook(self):
         remove_file(common.recordbook_path)
