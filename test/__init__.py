@@ -13,7 +13,9 @@ TEST_FILE_CHECKSUM = "5eb63bbbe01eeed093cb22bb8f5acdc3"
 TEST_ECC_CHECKSUM = "30db10ac181aa54fcc306ead2b8fb87a"
 TEST_DIRECTORY = pathlib.Path("test_data")
 TEST_SOURCE_FILE = TEST_DIRECTORY / "test_source"
-TEST_RECORD_FILE = TEST_DIRECTORY / "test_record_file"
+TEST_RECORD_FILE = (
+    TEST_DIRECTORY / common.METADATA_DIR_NAME / common.recordbook_file_name
+)
 TEST_DESTINATION_DIRECTORY = TEST_DIRECTORY / "test_destination_dir"
 TEST_DESTINATION_FILE = TEST_DESTINATION_DIRECTORY / TEST_SOURCE_FILE.name
 TEST_RECOVERY_FILE = pathlib.Path("restore_dir/test_source")

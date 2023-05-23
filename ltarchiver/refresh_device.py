@@ -55,8 +55,8 @@ def refresh_device(device_uuid: str, device_root: pathlib.Path):
     for record in home_recordbook.get_records_by_uuid(device_uuid):
         try:
             refresh_record(record, device_root)
-        except common.LTAError:
-            pass
+        except common.LTAError as err:
+            print(err.args[0])
 
 
 def run():
