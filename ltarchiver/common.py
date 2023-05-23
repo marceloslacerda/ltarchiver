@@ -40,6 +40,7 @@ class Validation(enum.Enum):
     NO_CHECKSUM_FILE = "The Checksum file doesn't exist"
     CORRUPTED = "The file appears to have been corrupted"
     VALID = "No errors found"
+
     def __str__(self):
         return self.value
 

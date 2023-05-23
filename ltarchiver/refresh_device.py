@@ -12,8 +12,8 @@ def refresh_record(record: common.Record, device_root: pathlib.Path):
     recovery_ecc_path = original_ecc_path.with_suffix(".rec")
     validation = record.get_validation()
     if (
-            validation == common.Validation.DOESNT_EXIST
-            or validation == common.Validation.ECC_DOESNT_EXIST
+        validation == common.Validation.DOESNT_EXIST
+        or validation == common.Validation.ECC_DOESNT_EXIST
     ):
         raise common.LTAError(f"{validation}. Skipping this file.")
     elif validation != common.Validation.VALID:

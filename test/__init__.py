@@ -50,6 +50,7 @@ def setup_test_files():
     TEST_SOURCE_FILE.write_text("hello world")
     write_checksum_of_file(TEST_SOURCE_FILE, common.recordbook_checksum_file_path)
 
+
 class BaseTestCase(unittest.TestCase):
     def setUp(self) -> None:
         setup_test_files()

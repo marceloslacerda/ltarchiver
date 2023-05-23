@@ -7,6 +7,7 @@ import test
 
 uuid, root = common.get_device_uuid_and_root_from_path(pathlib.Path("."))
 
+
 class MyTestCase(test.BaseTestCase):
     def setUp(self) -> None:
         super().setUp()

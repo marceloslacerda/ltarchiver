@@ -14,7 +14,6 @@ from ltarchiver.common import remove_file
 
 
 class MyTestCase(test.BaseTestCase):
-
     def test_file_not_exists_no_recordbook(self):
         remove_file(common.recordbook_path)
         self.assertRaises(
