@@ -37,9 +37,9 @@ def run():
     )
     dest_uuid, dest_root = common.get_device_uuid_and_root_from_path(backup_file_path)
     metadata_dir = (
-        backup_file_path.parent / "ltarchiver"
+        backup_file_path.parent / common.METADATA_DIR_NAME
         if common.DEBUG
-        else dest_root / "ltarchiver"
+        else dest_root / common.METADATA_DIR_NAME
     )
     backup_checksum_file = metadata_dir / "checksum.txt"
 

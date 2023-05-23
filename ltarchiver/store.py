@@ -19,7 +19,7 @@ def store():
     dest_uuid, dest_root = common.get_device_uuid_and_root_from_path(destination)
     if not common.DEBUG:
         destination = dest_root
-    metadata_dir = destination / "ltarchiver"
+    metadata_dir = destination / common.METADATA_DIR_NAME
     common.file_ok(destination, False)
     sync_recordbooks(metadata_dir)
     common.file_ok(source)

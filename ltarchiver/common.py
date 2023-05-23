@@ -141,7 +141,7 @@ class Record:
         return root / self.file_name
 
     def ecc_file_path(self, root: pathlib.Path) -> pathlib.Path:
-        return root / "ltarchiver" / ecc_dir_name / self.checksum
+        return root / METADATA_DIR_NAME / ecc_dir_name / self.checksum
 
 
 def error(msg: str):
