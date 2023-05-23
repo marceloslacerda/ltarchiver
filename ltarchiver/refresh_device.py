@@ -15,7 +15,7 @@ def refresh_record(record: common.Record, device_root: pathlib.Path):
             validation == common.Validation.DOESNT_EXIST
             or validation == common.Validation.ECC_DOESNT_EXIST
     ):
-        raise common.LTAError(f"{validation.value}. Skipping this file.")
+        raise common.LTAError(f"{validation}. Skipping this file.")
     elif validation != common.Validation.VALID:
         print(f"{validation}. Attempting to recover.")
         subprocess.check_call(
@@ -32,7 +32,7 @@ def refresh_record(record: common.Record, device_root: pathlib.Path):
         print(f"No errors found with {record.file_name}. Copying to new location.")
         subprocess.check_call(["cp", original_file_path, recovery_file_path])
         subprocess.check_call(["cp", original_ecc_path, recovery_ecc_path])
-    print("Success. Moving the created files to the original location.")
+    print("Success!\nMoving the created files to the original location.")
     subprocess.check_call(["mv", recovery_file_path, original_file_path])
     subprocess.check_call(["mv", recovery_ecc_path, original_ecc_path])
     print(f"Finished processing {record.file_name}.")
@@ -48,7 +48,7 @@ def refresh_device(device_uuid: str, device_root: pathlib.Path):
     home_recordbook = common.RecordBook(
         common.recordbook_path, common.recordbook_checksum_file_path
     )
-    common.validate_and_recover_recorbooks(home_recordbook, device_recordbook)
+    common.validate_and_recover_recordbooks(home_recordbook, device_recordbook)
     home_recordbook.merge(device_recordbook)
     device_recordbook.records = home_recordbook.records
     device_recordbook.write()

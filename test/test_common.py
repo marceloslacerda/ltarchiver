@@ -173,7 +173,7 @@ class MyTestCase(unittest.TestCase):
         record = list(common.get_records(common.recordbook_path))[0]
         self.assertEqual(
             record.ecc_file_path(TEST_DIRECTORY),
-            TEST_DIRECTORY / "ltarchiver" / "ecc" / TEST_FILE_CHECKSUM,
+            TEST_DIRECTORY / common.METADATA_DIR_NAME / "ecc" / TEST_FILE_CHECKSUM,
         )
 
     def test_get_validation_valid(self):

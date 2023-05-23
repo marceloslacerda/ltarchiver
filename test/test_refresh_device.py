@@ -36,7 +36,7 @@ class MyTestCase(test.BaseTestCase):
 
     def test_corrupted(self):
         test.add_errors_to_file(test.TEST_DESTINATION_FILE, 1)
-        refresh_device.refresh_record(self.record, test.TEST_DIRECTORY)
+        refresh_device.refresh_record(self.record, test.TEST_DESTINATION_DIRECTORY)
         self.assertTrue(True)
 
 

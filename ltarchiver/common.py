@@ -40,6 +40,8 @@ class Validation(enum.Enum):
     NO_CHECKSUM_FILE = "The Checksum file doesn't exist"
     CORRUPTED = "The file appears to have been corrupted"
     VALID = "No errors found"
+    def __str__(self):
+        return self.value
 
 
 @dataclass
@@ -142,6 +144,9 @@ class Record:
 
     def ecc_file_path(self, root: pathlib.Path) -> pathlib.Path:
         return root / METADATA_DIR_NAME / ecc_dir_name / self.checksum
+
+    def __str__(self):
+        return f"Record of {self.file_name} stored on {self.destination}"
 
 
 def error(msg: str):
@@ -418,6 +423,9 @@ class RecordBook:
             self.valid = False
             self.invalid_reason = Validation.CORRUPTED
 
+    def __str__(self):
+        return f"Recordbook stored on {self.path}, {len(self.records)} entries"
+
 
 def remove_file(path: pathlib.Path):
     try:
@@ -428,7 +436,7 @@ def remove_file(path: pathlib.Path):
         pass
 
 
-def validate_and_recover_recorbooks(
+def validate_and_recover_recordbooks(
     home_recordbook: RecordBook, device_recordbook: RecordBook, first_time_ok=False
 ):
     home_recordbook.validate()
