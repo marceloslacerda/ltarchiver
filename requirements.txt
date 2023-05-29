@@ -1,1 +1,2 @@
 psutil
+git+https://github.com/marceloslacerda/yesno.git

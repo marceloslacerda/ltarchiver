@@ -29,8 +29,7 @@ eccsize = 16  # bytes
 
 
 class LTAError(Exception):
-    def __init__(self, error_message):
-        self.args = (error_message,)
+    pass
 
 
 class Validation(enum.Enum):
@@ -161,19 +160,57 @@ def get_file_checksum(source: pathlib.Path):
     ).split()[0]
 
 
+class FileValidation(enum.Enum):
+    FILE_DOESNT_EXIST = enum.auto()
+    DIRECTORY_DOESNT_EXIST = enum.auto()
+    IS_DIRECTORY = enum.auto
+    NO_WRITE_PERMISSION_FILE = enum.auto()
+    NO_WRITE_PERMISSION_DIRECTORY = enum.auto()
+    NO_READ_PERMISSION_FILE = enum.auto()
+    NOT_A_FILE = enum.auto()
+
+
 def file_ok(path: pathlib.Path, source=True):
-    if not path.exists():
-        return LTAError(f"File {path} does not exist")
+    """Test for the usefulness of path.
+
+    If source is true the path must exist, be a file and readable.
+
+    If source is False, will test if it's a directory and writable
+    or a path that sits in a directory that's writable.
+
+    In case any test fails this function will throw an LTAError with the
+    reason.
+    """
     if source:
+        if not path.exists():
+            return LTAError(
+                f"File {path} does not exist", FileValidation.FILE_DOESNT_EXIST
+            )
         if not path.is_file():
-            return LTAError(f"Path {path} does not point to a file")
+            return LTAError(
+                f"Path {path} does not point to a file", FileValidation.NOT_A_FILE
+            )
         if not access(path, R_OK):
-            return LTAError(f"File {path} is not readable")
+            return LTAError(
+                f"File {path} is not readable", FileValidation.NO_READ_PERMISSION_FILE
+            )
     else:
-        if not path.is_dir():
-            return LTAError(f"Path {path} does not point to a file")
+        if not path.exists():
+            if not path.parent.exists():
+                LTAError(
+                    f"Directory {path} does not exist",
+                    FileValidation.DIRECTORY_DOESNT_EXIST,
+                )
+            else:
+                if not access(path.parent, W_OK):
+                    return LTAError(
+                        f"Cannot write to {path} directory",
+                        FileValidation.NO_WRITE_PERMISSION_DIRECTORY,
+                    )
         if not access(path, W_OK):
-            return LTAError(f"File {path} is not writable")
+            return LTAError(
+                f"File {path} is not writable", FileValidation.NO_WRITE_PERMISSION_FILE
+            )
 
 
 def copy_recordbook_from_to(

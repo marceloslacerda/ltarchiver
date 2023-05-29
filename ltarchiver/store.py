@@ -4,8 +4,9 @@ import shutil
 import subprocess
 import sys
 import pathlib
-
 import datetime
+
+import yesno
 
 from ltarchiver import common
 
@@ -22,7 +23,22 @@ def store():
     metadata_dir = destination / common.METADATA_DIR_NAME
     common.file_ok(destination, False)
     sync_recordbooks(metadata_dir)
-    common.file_ok(source)
+    try:
+        common.file_ok(source)
+        original_source = source
+    except common.LTAError as err:
+        if err.args[1] == common.FileValidation.IS_DIRECTORY:
+            print(f"{source} is a directory.")
+            if yesno.input_until_bool(
+                "Do you want it turned into a tar file before archiving?"
+            ):
+                original_source = source
+                source = tar_directory(source)
+            else:
+                raise common.LTAError("Cannot archive an uncompressed directory.")
+        else:
+            raise
+
     source_file_name = source.name
     print(f"Backup of: {source}\nTo: ", destination)
     if not common.DEBUG:
@@ -85,6 +101,15 @@ def store():
         out.split(" ", 1)[0] + " " + str(metadata_dir / "recordbook.txt")
     )
     os.sync()
+    if original_source != source:
+        # the original and the new source are different when a directory was tarred
+        # so the source (the tarred file) can (and should!) be safely removed
+        common.remove_file(source)
+        source = original_source
+    if not common.DEBUG and yesno.input_until_bool(
+        f"Do you want to remove the source?\n{source}"
+    ):
+        common.remove_file(source)
     print("All done")
 
 
@@ -156,6 +181,14 @@ def sync_recordbooks(bkp_dir: pathlib.Path):
             common.decide_recordbooks(
                 dest_recordbook_path, dest_recordbook_checksum_path
             )
+
+
+def tar_directory(path: pathlib.Path) -> pathlib.Path:
+    """Tar a directory and return the path to the tarred file."""
+    parent = path.parent
+    tarred = path.with_suffix(".tar")
+    subprocess.check_call(["tar", "-C", parent, "-cvf", tarred, path.name])
+    return tarred
 
 
 def run():

@@ -8,7 +8,6 @@ from test import (
     TEST_FILE_CHECKSUM,
     TEST_SOURCE_FILE,
     write_test_recorbook,
-    setup_test_files,
 )
 from ltarchiver.common import remove_file
 
@@ -77,6 +76,16 @@ class MyTestCase(test.BaseTestCase):
             common.check_recordbook_md5,
             common.recordbook_checksum_file_path,
         )
+
+    def test_tar_archive(self):
+        mydir = test.TEST_DIRECTORY / "mydir"
+        mydir.mkdir(parents=True, exist_ok=True)
+        tarred = store.tar_directory(mydir)
+        self.assertTrue(tarred.exists())
+        common.remove_file(mydir)
+        self.assertFalse(mydir.exists())
+        subprocess.check_call(["tar", "xf", tarred.name], cwd=test.TEST_DIRECTORY)
+        self.assertTrue(mydir.exists())
 
 
 if __name__ == "__main__":

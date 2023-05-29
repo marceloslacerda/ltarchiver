@@ -3,6 +3,7 @@ import shutil
 import unittest
 import datetime
 
+import test
 from ltarchiver import common
 
 from test import (
@@ -65,15 +66,18 @@ class MyTestCase(unittest.TestCase):
             return output
 
         common.input = fake_input
+        test.TEST_DESTINATION_DIRECTORY.mkdir(parents=True, exist_ok=True)
         common.recordbook_path.write_text("text 1")
-        dest_recordbook_checksum = pathlib.Path(
-            "test_data/other_recordbook_checksum.txt"
+        dest_recordbook = test.TEST_DESTINATION_DIRECTORY / common.recordbook_file_name
+        dest_recordbook_checksum = (
+            test.TEST_DESTINATION_DIRECTORY / "other_recordbook_checksum.txt"
         )
-        write_checksum_of_file(common.recordbook_path, dest_recordbook_checksum)
+        dest_recordbook.write_text("text 1")
+        write_checksum_of_file(dest_recordbook, dest_recordbook_checksum)
         self.assertRaises(
             common.LTAError,
             common.decide_recordbooks,
-            TEST_RECORD_FILE,
+            dest_recordbook,
             dest_recordbook_checksum,
         )
         common.input = input
