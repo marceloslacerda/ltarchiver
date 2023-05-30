@@ -156,7 +156,7 @@ def error(msg: str):
 
 def get_file_checksum(source: pathlib.Path):
     return subprocess.check_output(
-        shlex.split(f"md5sum {source}"), encoding="utf-8"
+        [f"md5sum", source], encoding="utf-8"
     ).split()[0]
 
 
