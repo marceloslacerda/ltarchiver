@@ -23,7 +23,14 @@ from ltarchiver.common import (
 def run():
     if len(sys.argv) != 3:
         error(f"usage: {sys.argv[0]} <backup> <destination>")
-    backup_file_path = pathlib.Path(sys.argv[1])
+    backup_file_path = pathlib.Path(sys.argv[1]).resolve()
+    if pathlib.Path(sys.argv[2]).is_dir():
+        destination_path = pathlib.Path(sys.argv[2]) / backup_file_path.name
+    else:
+        destination_path = pathlib.Path(sys.argv[2])
+    destination_path = destination_path.resolve()
+    if destination_path == backup_file_path:
+        common.error("Backup and destination are the same.")
     file_ok(backup_file_path)
     print(
         f"This program will check if there are any errors on the file {backup_file_path} and try to restore them if"
@@ -98,10 +105,6 @@ def run():
             )
 
     backup_md5 = get_file_checksum(backup_file_path)
-    if pathlib.Path(sys.argv[2]).is_dir():
-        destination_path = pathlib.Path(sys.argv[2]) / backup_file_path.name
-    else:
-        destination_path = sys.argv[2]
     original_ecc_file_path = (metadata_dir / "ecc") / record.checksum
     original_ecc_checksum = get_file_checksum(original_ecc_file_path)
     if backup_md5 == record.checksum and original_ecc_checksum == record.ecc_checksum:

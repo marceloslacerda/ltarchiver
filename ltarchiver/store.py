@@ -15,8 +15,10 @@ def store():
     if len(sys.argv) != 3:
         common.error(f"usage: {sys.argv[0]} <source_file> <destination_directory>")
     common.recordbook_dir.mkdir(parents=True, exist_ok=True)
-    source = pathlib.Path(sys.argv[1]).absolute()
-    destination = pathlib.Path(sys.argv[2]).absolute()
+    source = pathlib.Path(sys.argv[1]).resolve()
+    destination = pathlib.Path(sys.argv[2]).resolve()
+    if source == destination:
+        raise common.LTAError("Source and destination are the same.")
     dest_uuid, dest_root = common.get_device_uuid_and_root_from_path(destination)
     if not common.DEBUG:
         destination = dest_root
