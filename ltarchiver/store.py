@@ -11,12 +11,8 @@ import yesno
 from ltarchiver import common
 
 
-def store():
-    if len(sys.argv) != 3:
-        common.error(f"usage: {sys.argv[0]} <source_file> <destination_directory>")
+def store(source: pathlib.Path, destination: pathlib.Path):
     common.recordbook_dir.mkdir(parents=True, exist_ok=True)
-    source = pathlib.Path(sys.argv[1]).resolve()
-    destination = pathlib.Path(sys.argv[2]).resolve()
     if source == destination:
         raise common.LTAError("Source and destination are the same.")
     dest_uuid, dest_root = common.get_device_uuid_and_root_from_path(destination)
@@ -31,7 +27,7 @@ def store():
     except common.LTAError as err:
         if err.args[1] == common.FileValidation.IS_DIRECTORY:
             print(f"{source} is a directory.")
-            if yesno.input_until_bool(
+            if common.DEBUG or yesno.input_until_bool(
                 "Do you want it turned into a tar file before archiving?"
             ):
                 original_source = source
@@ -108,7 +104,7 @@ def store():
         # so the source (the tarred file) can (and should!) be safely removed
         common.remove_file(source)
         source = original_source
-    if not common.DEBUG and yesno.input_until_bool(
+    if common.DEBUG or yesno.input_until_bool(
         f"Do you want to remove the source?\n{source}"
     ):
         common.remove_file(source)
@@ -194,8 +190,12 @@ def tar_directory(path: pathlib.Path) -> pathlib.Path:
 
 
 def run():
+    if len(sys.argv) != 3:
+        common.error(f"usage: {sys.argv[0]} <source_file> <destination_directory>")
+    source = pathlib.Path(sys.argv[1]).resolve()
+    destination = pathlib.Path(sys.argv[2]).resolve()
     try:
-        store()
+        store(source, destination)
     except common.LTAError as err_:
         common.error(err_.args[0])
 

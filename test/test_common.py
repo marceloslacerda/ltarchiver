@@ -48,7 +48,6 @@ class MyTestCase(unittest.TestCase):
 
         common.input = fake_input
         common.recordbook_path.write_text("text 1")
-        TEST_DESTINATION_DIRECTORY.mkdir(parents=True)
         dest_recordbook = TEST_DESTINATION_DIRECTORY / "other_recordbook.txt"
         dest_recordbook_checksum = (
             TEST_DESTINATION_DIRECTORY / "other_recordbook_checksum.txt"

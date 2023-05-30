@@ -4,20 +4,19 @@ import shlex
 
 import test
 from ltarchiver import common
-from test import store_test_file
 
 
-class MyTestCase(unittest.TestCase):
+class MyTestCase(test.BaseTestCase):
     def setUp(self) -> None:
-        test.setup_test_files()
-        common.remove_file(test.TEST_DESTINATION_DIRECTORY)
+        super().setUp()
+        common.remove_file(test.TEST_DESTINATION_FILE)
         common.remove_file(test.TEST_RECOVERY_FILE)
 
     def test_create_and_restore_small(self):
         original_md5 = common.get_file_checksum(test.TEST_SOURCE_FILE)
         self.assertFalse(test.TEST_DESTINATION_FILE.exists())
         self.assertFalse(test.TEST_RECOVERY_FILE.exists())
-        store_test_file()
+        test.store_test_file()
         destination_md5 = common.get_file_checksum(test.TEST_DESTINATION_FILE)
         self.assertEqual(original_md5, destination_md5)
         test.add_errors_to_file(test.TEST_DESTINATION_FILE)
@@ -32,7 +31,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(original_md5, recovered_md5)
 
     def test_restore_small_ecc(self):
-        store_test_file()
+        test.store_test_file()
         original_ecc_md5 = common.get_file_checksum(test.TEST_CHECKSUM_FILE)
         test.add_errors_to_file(test.TEST_CHECKSUM_FILE)
         self.assertRaises(
@@ -49,7 +48,7 @@ class MyTestCase(unittest.TestCase):
         original_md5 = common.get_file_checksum(test.TEST_SOURCE_FILE)
         self.assertFalse(test.TEST_DESTINATION_FILE.exists())
         self.assertFalse(test.TEST_RECOVERY_FILE.exists())
-        store_test_file()
+        test.store_test_file()
         destination_md5 = common.get_file_checksum(test.TEST_DESTINATION_FILE)
         self.assertEqual(original_md5, destination_md5)
         test.add_errors_to_file(test.TEST_DESTINATION_FILE, 2)
@@ -71,7 +70,7 @@ class MyTestCase(unittest.TestCase):
         original_md5 = common.get_file_checksum(test.TEST_SOURCE_FILE)
         self.assertFalse(test.TEST_DESTINATION_FILE.exists())
         self.assertFalse(test.TEST_RECOVERY_FILE.exists())
-        store_test_file()
+        test.store_test_file()
         destination_md5 = common.get_file_checksum(test.TEST_DESTINATION_FILE)
         self.assertEqual(original_md5, destination_md5)
         test.add_errors_to_file(test.TEST_DESTINATION_FILE)

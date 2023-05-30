@@ -155,9 +155,7 @@ def error(msg: str):
 
 
 def get_file_checksum(source: pathlib.Path):
-    return subprocess.check_output(
-        [f"md5sum", source], encoding="utf-8"
-    ).split()[0]
+    return subprocess.check_output([f"md5sum", source], encoding="utf-8").split()[0]
 
 
 class FileValidation(enum.Enum):
@@ -170,7 +168,7 @@ class FileValidation(enum.Enum):
     NOT_A_FILE = enum.auto()
 
 
-def file_ok(path: pathlib.Path, source=True):
+def file_ok(path: pathlib.Path, source=True) -> None:
     """Test for the usefulness of path.
 
     If source is true the path must exist, be a file and readable.
@@ -183,32 +181,34 @@ def file_ok(path: pathlib.Path, source=True):
     """
     if source:
         if not path.exists():
-            return LTAError(
+            raise LTAError(
                 f"File {path} does not exist", FileValidation.FILE_DOESNT_EXIST
             )
+        if path.is_dir():
+            raise LTAError(f"{path} is a directory", FileValidation.IS_DIRECTORY)
         if not path.is_file():
-            return LTAError(
+            raise LTAError(
                 f"Path {path} does not point to a file", FileValidation.NOT_A_FILE
             )
         if not access(path, R_OK):
-            return LTAError(
+            raise LTAError(
                 f"File {path} is not readable", FileValidation.NO_READ_PERMISSION_FILE
             )
     else:
         if not path.exists():
             if not path.parent.exists():
-                LTAError(
-                    f"Directory {path} does not exist",
+                raise LTAError(
+                    f"Directory {path.parent} does not exist",
                     FileValidation.DIRECTORY_DOESNT_EXIST,
                 )
             else:
                 if not access(path.parent, W_OK):
-                    return LTAError(
-                        f"Cannot write to {path} directory",
+                    raise LTAError(
+                        f"Cannot write to parent of {path}",
                         FileValidation.NO_WRITE_PERMISSION_DIRECTORY,
                     )
         if not access(path, W_OK):
-            return LTAError(
+            raise LTAError(
                 f"File {path} is not writable", FileValidation.NO_WRITE_PERMISSION_FILE
             )
 

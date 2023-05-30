@@ -51,6 +51,7 @@ def setup_test_files():
     common.recordbook_dir.mkdir(parents=True)
     TEST_SOURCE_FILE.write_text("hello world")
     write_checksum_of_file(TEST_SOURCE_FILE, common.recordbook_checksum_file_path)
+    TEST_DESTINATION_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
 
 class BaseTestCase(unittest.TestCase):

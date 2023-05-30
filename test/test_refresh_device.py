@@ -12,7 +12,6 @@ class MyTestCase(test.BaseTestCase):
     def setUp(self) -> None:
         super().setUp()
         test.setup_test_files()
-        common.remove_file(test.TEST_DESTINATION_DIRECTORY)
         common.remove_file(test.TEST_RECOVERY_FILE)
         test.store_test_file()
         self.record = common.Record(
