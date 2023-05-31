@@ -27,7 +27,15 @@ def refresh_record(record: common.Record, device_root: pathlib.Path):
                 str(recovery_ecc_path),
             ]
         )
-        # todo might fail silently
+        print("Checking the results")
+        if common.get_file_checksum(recovery_file_path) != record.checksum:
+            raise common.LTAError(
+                "Checksum of the recovered file doesn't match the records. Sorry!"
+            )
+        if common.get_file_checksum(recovery_ecc_path) != record.ecc_checksum:
+            raise common.LTAError(
+                "Checksum of the recovered ecc doesn't match the records. Sorry!"
+            )
     else:
         print(f"No errors found with {record.file_name}. Copying to new location.")
         subprocess.check_call(["cp", original_file_path, recovery_file_path])

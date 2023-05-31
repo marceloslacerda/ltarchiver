@@ -88,7 +88,9 @@ class MyTestCase(test.BaseTestCase):
         self.assertTrue(mydir.exists())
 
     def test_store(self):
-        store.store(test.TEST_SOURCE_FILE, test.TEST_DESTINATION_DIRECTORY, non_interactive=True)
+        store.store(
+            test.TEST_SOURCE_FILE, test.TEST_DESTINATION_DIRECTORY, non_interactive=True
+        )
 
     def test_store_spaces(self):
         source = test.TEST_DIRECTORY / "test file.txt"
