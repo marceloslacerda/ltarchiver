@@ -88,17 +88,17 @@ class MyTestCase(test.BaseTestCase):
         self.assertTrue(mydir.exists())
 
     def test_store(self):
-        store.store(test.TEST_SOURCE_FILE, test.TEST_DESTINATION_DIRECTORY)
+        store.store(test.TEST_SOURCE_FILE, test.TEST_DESTINATION_DIRECTORY, non_interactive=True)
 
     def test_store_spaces(self):
         source = test.TEST_DIRECTORY / "test file.txt"
         source.write_text("hello world")
-        store.store(source, test.TEST_DESTINATION_DIRECTORY)
+        store.store(source, test.TEST_DESTINATION_DIRECTORY, non_interactive=True)
 
     def test_store_directory(self):
         source = test.TEST_DIRECTORY / "my dir"
         source.mkdir(parents=True, exist_ok=True)
-        store.store(source, test.TEST_DESTINATION_DIRECTORY)
+        store.store(source, test.TEST_DESTINATION_DIRECTORY, non_interactive=True)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 """Store command
 
 Usage:
-  ltarchiver-store <source_file> <destination_directory>
+  ltarchiver-store [--non-interactive] <source_file> <destination_directory>
 
 """
 
@@ -19,7 +19,7 @@ from docopt import docopt
 from ltarchiver import common
 
 
-def store(source: pathlib.Path, destination: pathlib.Path):
+def store(source: pathlib.Path, destination: pathlib.Path, non_interactive: bool):
     common.recordbook_dir.mkdir(parents=True, exist_ok=True)
     if source == destination:
         raise common.LTAError("Source and destination are the same.")
@@ -35,7 +35,7 @@ def store(source: pathlib.Path, destination: pathlib.Path):
     except common.LTAError as err:
         if err.args[1] == common.FileValidation.IS_DIRECTORY:
             print(f"{source} is a directory.")
-            if common.DEBUG or yesno.input_until_bool(
+            if non_interactive or yesno.input_until_bool(
                 "Do you want it turned into a tar file before archiving?"
             ):
                 original_source = source
@@ -47,7 +47,7 @@ def store(source: pathlib.Path, destination: pathlib.Path):
 
     source_file_name = source.name
     print(f"Backup of: {source}\nTo: ", destination)
-    if not common.DEBUG:
+    if not non_interactive:
         input("Press ENTER to continue. Press Ctrl+C to abort.")
     if not destination.is_dir():
         print(destination, "is not a directory! Aborting.")
@@ -112,7 +112,7 @@ def store(source: pathlib.Path, destination: pathlib.Path):
         # so the source (the tarred file) can (and should!) be safely removed
         common.remove_file(source)
         source = original_source
-    if common.DEBUG or yesno.input_until_bool(
+    if non_interactive or yesno.input_until_bool(
         f"Do you want to remove the source?\n{source}"
     ):
         common.remove_file(source)
@@ -202,7 +202,7 @@ def run():
     source = pathlib.Path(arguments["<source_file>"]).resolve()
     destination = pathlib.Path(arguments["<destination_directory>"]).resolve()
     try:
-        store(source, destination)
+        store(source, destination, "--non-interactive" in arguments or common.DEBUG)
     except common.LTAError as err_:
         common.error(err_.args[0])
 
