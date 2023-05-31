@@ -1,2 +1,3 @@
 psutil
 msl09-yesno==0.1.0
+docopt

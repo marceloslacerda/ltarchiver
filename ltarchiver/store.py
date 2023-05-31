@@ -1,12 +1,20 @@
+"""Store command
+
+Usage:
+  ltarchiver-store <source_file> <destination_directory>
+
+"""
+
 import os
 import shlex
 import shutil
 import subprocess
-import sys
 import pathlib
 import datetime
 
 import yesno
+
+from docopt import docopt
 
 from ltarchiver import common
 
@@ -190,10 +198,9 @@ def tar_directory(path: pathlib.Path) -> pathlib.Path:
 
 
 def run():
-    if len(sys.argv) != 3:
-        common.error(f"usage: {sys.argv[0]} <source_file> <destination_directory>")
-    source = pathlib.Path(sys.argv[1]).resolve()
-    destination = pathlib.Path(sys.argv[2]).resolve()
+    arguments = docopt(__doc__)
+    source = pathlib.Path(arguments["<source_file>"]).resolve()
+    destination = pathlib.Path(arguments["<destination_directory>"]).resolve()
     try:
         store(source, destination)
     except common.LTAError as err_:

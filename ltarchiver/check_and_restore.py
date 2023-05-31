@@ -1,9 +1,17 @@
-import sys
+"""Restore command
+
+Usage:
+  ltarchiver-restore <backup> <destination>
+
+"""
+
 import os
 import pathlib
 import shutil
 import subprocess
 import shlex
+
+from docopt import docopt
 
 from ltarchiver import common
 
@@ -21,20 +29,25 @@ from ltarchiver.common import (
 
 
 def run():
-    if len(sys.argv) != 3:
-        error(f"usage: {sys.argv[0]} <backup> <destination>")
-    backup_file_path = pathlib.Path(sys.argv[1]).resolve()
-    if pathlib.Path(sys.argv[2]).is_dir():
-        destination_path = pathlib.Path(sys.argv[2]) / backup_file_path.name
+    arguments = docopt(__doc__)
+    backup_file_path = pathlib.Path(arguments["<backup>"]).resolve()
+    if pathlib.Path(arguments["<destination>"]).is_dir():
+        destination_path = (
+            pathlib.Path(arguments["<destination>"]) / backup_file_path.name
+        )
     else:
-        destination_path = pathlib.Path(sys.argv[2])
+        destination_path = pathlib.Path(arguments["<destination>"])
+    restore(backup_file_path, destination_path)
+
+
+def restore(backup_file_path: pathlib.Path, destination_path: pathlib.Path):
     destination_path = destination_path.resolve()
     if destination_path == backup_file_path:
         common.error("Backup and destination are the same.")
     file_ok(backup_file_path)
     print(
         f"This program will check if there are any errors on the file {backup_file_path} and try to restore them if"
-        f" necessary.\nDestination folder: {sys.argv[2]}"
+        f" necessary.\nDestination: {destination_path}"
     )
     if not common.DEBUG:
         input("Press ENTER to continue. Press Ctrl+C to abort.")
