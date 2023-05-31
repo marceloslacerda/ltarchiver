@@ -112,7 +112,7 @@ class Record:
             f.write(f"Version: {self.version}\n")
             f.write(f"Deleted: {self.deleted}\n")
             f.write(f"File-Name: {self.file_name}\n")
-            f.write(f"Source: {self.source.absolute()}\n")
+            f.write(f"Source: {self.source.resolve()}\n")
             f.write(f"Destination: {self.destination}\n")
             f.write(f"Bytes-per-chunk: {self.chunksize}\n")
             f.write(f"EC-bytes-per-chunk: {self.eccsize}\n")
@@ -377,7 +377,7 @@ def get_device_uuid_and_root_from_path(path: pathlib.Path) -> (str, pathlib.Path
                 parts[0]
             ).resolve(strict=True)
     prev_parent = None
-    parent = path.absolute()
+    parent = path.resolve()
     while prev_parent != parent:
         if parent in path_to_devices:
             return devices_to_uuids[path_to_devices[parent]], parent
