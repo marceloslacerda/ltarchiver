@@ -1,2 +1,2 @@
 psutil
-git+https://github.com/marceloslacerda/yesno.git
+msl09-yesno==0.1.0
