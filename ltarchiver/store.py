@@ -1,7 +1,7 @@
 """Store command
 
 Usage:
-  ltarchiver-store [--non-interactive] <source_file> <destination_directory>
+  ltarchiver-store [--non-interactive] <source_file>... <destination_directory>
 
 """
 
@@ -199,10 +199,12 @@ def tar_directory(path: pathlib.Path) -> pathlib.Path:
 
 def run():
     arguments = docopt(__doc__)
-    source = pathlib.Path(arguments["<source_file>"]).resolve()
     destination = pathlib.Path(arguments["<destination_directory>"]).resolve()
     try:
-        store(source, destination, "--non-interactive" in arguments or common.DEBUG)
+        sources = arguments["<source_file>"]
+        for source in sources:
+            source = pathlib.Path(source).resolve()
+            store(source, destination, arguments["--non-interactive"] or common.DEBUG)
     except common.LTAError as err_:
         common.error(err_.args[0])
 
