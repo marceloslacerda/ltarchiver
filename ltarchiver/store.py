@@ -1,20 +1,12 @@
-"""Store command
-
-Usage:
-  ltarchiver-store [--non-interactive] <source_file>... <destination_directory>
-
-"""
-
 import os
 import shlex
 import shutil
 import subprocess
 import pathlib
 import datetime
+import optparse
 
 import yesno
-
-from docopt import docopt
 
 from ltarchiver import common
 
@@ -197,16 +189,32 @@ def tar_directory(path: pathlib.Path) -> pathlib.Path:
     return tarred
 
 
+def get_option_parser():
+    parser = optparse.OptionParser(
+        "usage: %prog [options] <source_file>... <destination_directory>"
+    )
+    parser.add_option(
+        "--non-interactive",
+        action="store_true",
+        help="disable most confirmation dialogs",
+    )
+    return parser
+
+
 def run():
-    arguments = docopt(__doc__)
-    destination = pathlib.Path(arguments["<destination_directory>"]).resolve()
-    try:
-        sources = arguments["<source_file>"]
-        for source in sources:
+    parser = get_option_parser()
+    (options, args) = parser.parse_args()
+    if len(args) < 2:
+        parser.print_help()
+        common.error("Either the source or the destination was not provided. Aborting.")
+    destination = pathlib.Path(args[-1]).resolve()
+    sources = args[:-1]
+    for source in sources:
+        try:
             source = pathlib.Path(source).resolve()
-            store(source, destination, arguments["--non-interactive"] or common.DEBUG)
-    except common.LTAError as err_:
-        common.error(err_.args[0])
+            store(source, destination, options.non_interactive or common.DEBUG)
+        except common.LTAError as err_:
+            common.error(err_.args[0])
 
 
 if __name__ == "__main__":
