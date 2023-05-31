@@ -102,6 +102,18 @@ class MyTestCase(test.BaseTestCase):
         source.mkdir(parents=True, exist_ok=True)
         store.store(source, test.TEST_DESTINATION_DIRECTORY, non_interactive=True)
 
+    def test_store_twice(self):
+        store.store(
+            test.TEST_SOURCE_FILE, test.TEST_DESTINATION_DIRECTORY, non_interactive=True
+        )
+        self.assertRaises(
+            common.LTAError,
+            store.store,
+            test.TEST_SOURCE_FILE,
+            test.TEST_DESTINATION_DIRECTORY,
+            non_interactive=True,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
