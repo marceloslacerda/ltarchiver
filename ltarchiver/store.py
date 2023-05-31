@@ -208,10 +208,9 @@ def run():
         parser.print_help()
         common.error("Either the source or the destination was not provided. Aborting.")
     destination = pathlib.Path(args[-1]).resolve()
-    sources = args[:-1]
+    sources = {pathlib.Path(source).resolve() for source in args[:-1]}
     for source in sources:
         try:
-            source = pathlib.Path(source).resolve()
             store(source, destination, options.non_interactive or common.DEBUG)
         except common.LTAError as err_:
             common.error(err_.args[0])
