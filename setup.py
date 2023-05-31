@@ -32,6 +32,7 @@ setup(
         "console_scripts": [
             "ltarchiver-store=ltarchiver.store:run",
             "ltarchiver-restore=ltarchiver.check_and_restore:run",
+            "ltarchiver-refresh=ltarchiver.refresh_device:run",
         ],
     },
     data_files=[
