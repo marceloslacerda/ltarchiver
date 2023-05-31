@@ -50,14 +50,18 @@ def store(source: pathlib.Path, destination: pathlib.Path, non_interactive: bool
         print("Checksum calculated", datetime.datetime.now())
     except subprocess.SubprocessError as err:
         raise common.LTAError(f"Error calculating the md5 of source: {err}") from err
+    destination_file_path = destination / source_file_name
     try:
-        file_not_exists(md5, source_file_name, destination / source_file_name)
+        file_not_exists_in_recordbook(md5, source_file_name, destination_file_path)
     except FileNotFoundError:
         pass
         # Triggered when the recordbook is not found. This usually means that it's the
         # first time that ltarchiver is running if file were to exist on destination's
         # recordbook it would have been already copied during sync
-    destination_file_path = destination / source_file_name
+    if destination_file_path.exists():
+        raise common.LTAError(
+            f"{source_file_name} is not in the recordbook but {destination_file_path} already exists. Aborting!"
+        )
     ecc_dir = metadata_dir / common.ecc_dir_name
     ecc_dir.mkdir(parents=True, exist_ok=True)
     ecc_file_path = ecc_dir / md5
@@ -125,7 +129,9 @@ def get_device_uuid(destination):
     raise common.LTAError(f"UUID not found for {destination}")
 
 
-def file_not_exists(md5: str, file_name: str, destination_path: pathlib.Path):
+def file_not_exists_in_recordbook(
+    md5: str, file_name: str, destination_path: pathlib.Path
+):
     """The function fails if the file is in the recordbook and it's not deleted"""
     if not common.recordbook_path.exists():
         raise FileNotFoundError("The recordbook doesn't exist")

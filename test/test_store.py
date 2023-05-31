@@ -17,7 +17,7 @@ class MyTestCase(test.BaseTestCase):
         remove_file(common.recordbook_path)
         self.assertRaises(
             FileNotFoundError,
-            store.file_not_exists,
+            store.file_not_exists_in_recordbook,
             "",
             pathlib.Path("nopath"),
             pathlib.Path("nopath"),
@@ -27,19 +27,19 @@ class MyTestCase(test.BaseTestCase):
         write_test_recorbook(common.recordbook_path)
         self.assertRaises(
             common.LTAError,
-            store.file_not_exists,
+            store.file_not_exists_in_recordbook,
             "bogus md5",
             TEST_SOURCE_FILE.name,
             TEST_SOURCE_FILE,
         )
         self.assertRaises(
             common.LTAError,
-            store.file_not_exists,
+            store.file_not_exists_in_recordbook,
             TEST_FILE_CHECKSUM,
             "bogus name",
             TEST_SOURCE_FILE,
         )
-        store.file_not_exists(
+        store.file_not_exists_in_recordbook(
             "bogus md5", "bogus name", pathlib.Path("test_data/bogus_file")
         )  # test that no error is raised
 
@@ -110,6 +110,33 @@ class MyTestCase(test.BaseTestCase):
             common.LTAError,
             store.store,
             test.TEST_SOURCE_FILE,
+            test.TEST_DESTINATION_DIRECTORY,
+            non_interactive=True,
+        )
+
+    def test_store_destination_exists_no_recordbook(self):
+        test.TEST_DESTINATION_FILE.write_text("some text")
+        self.assertRaises(
+            common.LTAError,
+            store.store,
+            test.TEST_SOURCE_FILE,
+            test.TEST_DESTINATION_DIRECTORY,
+            non_interactive=True,
+        )
+
+    def test_store_destination_exists_with_recordbook(self):
+        store.store(
+            test.TEST_SOURCE_FILE, test.TEST_DESTINATION_DIRECTORY, non_interactive=True
+        )
+        other_file_name = "other_file.txt"
+        other_file_source = test.TEST_DIRECTORY / other_file_name
+        other_file_destination = test.TEST_DESTINATION_DIRECTORY / other_file_name
+        other_file_source.write_text("hello second")
+        other_file_destination.write_text("something else")
+        self.assertRaises(
+            common.LTAError,
+            store.store,
+            other_file_source,
             test.TEST_DESTINATION_DIRECTORY,
             non_interactive=True,
         )
