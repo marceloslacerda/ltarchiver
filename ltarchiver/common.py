@@ -9,7 +9,7 @@ import sys
 import typing
 import psutil
 from os import access, R_OK, W_OK
-from dataclasses import dataclass
+import dataclasses
 
 METADATA_DIR_NAME = ".ltarchiver"
 
@@ -44,7 +44,7 @@ class Validation(enum.Enum):
         return self.value
 
 
-@dataclass
+@dataclasses.dataclass
 class TerminalMenu:
     title: str
     options: typing.Dict[str, typing.Callable]
@@ -92,7 +92,7 @@ class TerminalMenu:
                     break
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Record:
     timestamp: datetime.datetime
     source: pathlib.Path
@@ -258,7 +258,7 @@ def decide_recordbooks(
     menu.show()
 
 
-def get_records(recordbook_path: pathlib.Path) -> [Record]:
+def get_records(recordbook_path: pathlib.Path) -> typing.Iterable[Record]:
     recordbook = recordbook_path.open("r")
     source = None
     destination = None
@@ -463,6 +463,10 @@ class RecordBook:
 
     def __str__(self):
         return f"Recordbook stored on {self.path}, {len(self.records)} entries"
+
+    def update_record(self, record: Record):
+        self.records.remove(record)
+        self.records.add(dataclasses.replace(record, timestamp=datetime.datetime.now()))
 
 
 def remove_file(path: pathlib.Path):

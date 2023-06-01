@@ -90,6 +90,16 @@ class MyTestCase(test.BaseTestCase):
             str(test.TEST_DESTINATION_DIRECTORY), test.TEST_DESTINATION_DIRECTORY
         )
 
+    def test_refresh_updates_date_of_record(self):
+        records = common.get_records(test.TEST_RECORD_FILE)
+        original_ts = list(records)[0].timestamp
+        refresh_device.refresh_device(
+            str(test.TEST_DESTINATION_DIRECTORY), test.TEST_DESTINATION_DIRECTORY
+        )
+        records = common.get_records(test.TEST_RECORD_FILE)
+        new_ts = list(records)[0].timestamp
+        self.assertGreater(new_ts, original_ts)
+
 
 if __name__ == "__main__":
     unittest.main()

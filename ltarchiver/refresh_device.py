@@ -1,3 +1,4 @@
+import datetime
 import pathlib
 import subprocess
 import sys
@@ -58,13 +59,15 @@ def refresh_device(device_uuid: str, device_root: pathlib.Path):
     )
     common.validate_and_recover_recordbooks(home_recordbook, device_recordbook)
     home_recordbook.merge(device_recordbook)
-    device_recordbook.records = home_recordbook.records
-    device_recordbook.write()
     for record in home_recordbook.get_records_by_uuid(device_uuid):
         try:
             refresh_record(record, device_root)
+            home_recordbook.update_record(record)
         except common.LTAError as err:
             print(err.args[0])
+    device_recordbook.records = home_recordbook.records
+    home_recordbook.write()
+    device_recordbook.write()
 
 
 def run():
