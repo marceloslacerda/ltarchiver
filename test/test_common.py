@@ -22,65 +22,6 @@ class MyTestCase(unittest.TestCase):
     def setUp(self) -> None:
         setup_test_files()
 
-    def test_decide_recordbooks_option_1(self):
-        output = "1"
-
-        def fake_input():
-            return output
-
-        common.input = fake_input
-        common.recordbook_path.write_text("text 1")
-        dest_recordbook = pathlib.Path("test_data/other_recordbook.txt")
-        dest_recordbook_checksum = pathlib.Path(
-            "test_data/other_recordbook_checksum.txt"
-        )
-        dest_recordbook.write_text("text 2")
-        write_checksum_of_file(dest_recordbook, dest_recordbook_checksum)
-        common.decide_recordbooks(dest_recordbook, dest_recordbook_checksum)
-        self.assertEqual(dest_recordbook.read_text(), "text 2")
-        common.input = input
-
-    def test_decide_recordbooks_option_2(self):
-        output = "2"
-
-        def fake_input():
-            return output
-
-        common.input = fake_input
-        common.recordbook_path.write_text("text 1")
-        dest_recordbook = TEST_DESTINATION_DIRECTORY / "other_recordbook.txt"
-        dest_recordbook_checksum = (
-            TEST_DESTINATION_DIRECTORY / "other_recordbook_checksum.txt"
-        )
-        write_checksum_of_file(dest_recordbook, dest_recordbook_checksum)
-        dest_recordbook.write_text("text 2")
-        common.decide_recordbooks(dest_recordbook, dest_recordbook_checksum)
-        self.assertEqual(common.recordbook_path.read_text(), "text 1")
-        common.input = input
-
-    def test_decide_recordbooks_option_3(self):
-        output = "3"
-
-        def fake_input():
-            return output
-
-        common.input = fake_input
-        test.TEST_DESTINATION_DIRECTORY.mkdir(parents=True, exist_ok=True)
-        common.recordbook_path.write_text("text 1")
-        dest_recordbook = test.TEST_DESTINATION_DIRECTORY / common.recordbook_file_name
-        dest_recordbook_checksum = (
-            test.TEST_DESTINATION_DIRECTORY / "other_recordbook_checksum.txt"
-        )
-        dest_recordbook.write_text("text 1")
-        write_checksum_of_file(dest_recordbook, dest_recordbook_checksum)
-        self.assertRaises(
-            common.LTAError,
-            common.decide_recordbooks,
-            dest_recordbook,
-            dest_recordbook_checksum,
-        )
-        common.input = input
-
     def test_get_file_checksum(self):
         self.assertEqual(TEST_FILE_CHECKSUM, common.get_file_checksum(TEST_SOURCE_FILE))
 

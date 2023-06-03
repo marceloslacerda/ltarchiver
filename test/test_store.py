@@ -13,6 +13,9 @@ from ltarchiver.common import remove_file
 
 
 class MyTestCase(test.BaseTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        store.common.DEBUG=True
     def test_file_not_exists_no_recordbook(self):
         remove_file(common.recordbook_path)
         self.assertRaises(
@@ -140,6 +143,21 @@ class MyTestCase(test.BaseTestCase):
             test.TEST_DESTINATION_DIRECTORY,
             non_interactive=True,
         )
+
+    def test_store_in_subdirectory(self):
+        destination_directory = test.TEST_DESTINATION_DIRECTORY / "mydir"
+        destination_directory.mkdir(exist_ok=True, parents=True)
+        destination = destination_directory / test.TEST_SOURCE_FILE.name
+        self.assertFalse(destination.exists())
+        source_text = test.TEST_SOURCE_FILE.read_text()
+        store.common.DEBUG = False
+        store.DEBUG_META_ON_DESTINATION = True
+        store.store(
+            test.TEST_SOURCE_FILE, destination_directory, non_interactive=True
+        )
+        self.assertTrue(destination.exists())
+        self.assertEqual(source_text, destination.read_text())
+
 
 
 if __name__ == "__main__":

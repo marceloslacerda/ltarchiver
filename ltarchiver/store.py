@@ -1,6 +1,5 @@
 import os
 import shlex
-import shutil
 import subprocess
 import pathlib
 import datetime
@@ -10,17 +9,18 @@ import yesno
 
 from ltarchiver import common
 
+DEBUG_META_ON_DESTINATION = False
 
 def store(source: pathlib.Path, destination: pathlib.Path, non_interactive: bool):
     common.recordbook_dir.mkdir(parents=True, exist_ok=True)
     if source == destination:
         raise common.LTAError("Source and destination are the same.")
-    dest_uuid, dest_root = common.get_device_uuid_and_root_from_path(destination)
-    if not common.DEBUG:
-        destination = dest_root
-    metadata_dir = destination / common.METADATA_DIR_NAME
+    dest_uuid, device_root = common.get_device_uuid_and_root_from_path(destination)
+    if not DEBUG_META_ON_DESTINATION:
+        destination_metadata_dir = device_root / common.METADATA_DIR_NAME
+    else:
+        destination_metadata_dir = destination / common.METADATA_DIR_NAME
     common.file_ok(destination, False)
-    sync_recordbooks(metadata_dir)
     try:
         common.file_ok(source)
         original_source = source
@@ -62,7 +62,7 @@ def store(source: pathlib.Path, destination: pathlib.Path, non_interactive: bool
         raise common.LTAError(
             f"{source_file_name} is not in the recordbook but {destination_file_path} already exists. Aborting!"
         )
-    ecc_dir = metadata_dir / common.ecc_dir_name
+    ecc_dir = destination_metadata_dir / common.ecc_dir_name
     ecc_dir.mkdir(parents=True, exist_ok=True)
     ecc_file_path = ecc_dir / md5
 
@@ -80,28 +80,21 @@ def store(source: pathlib.Path, destination: pathlib.Path, non_interactive: bool
         timestamp=datetime.datetime.now(),
         file_name=source_file_name,
         source=source,
-        destination=dest_uuid,
+        destination_uuid=dest_uuid,
+        destination=destination.relative_to(device_root),
         checksum=md5,
         ecc_checksum=common.get_file_checksum(ecc_file_path),
     )
-    record.write(common.RECORD_PATH)
-    try:
-        old_text = common.recordbook_path.read_text() + "\n"
-    except FileNotFoundError:
-        old_text = ""
-    recordbook = common.recordbook_path.open("wt")
-    recordbook.write(old_text + common.RECORD_PATH.read_text())
-    recordbook.close()
-    shutil.copy(common.recordbook_path, metadata_dir)
-    recordbook_checksum_file = common.recordbook_checksum_file_path.open("wt")
-    out = subprocess.check_output(
-        shlex.split(f"md5sum {common.recordbook_path}"), encoding="utf-8"
+    source_recordbook = common.RecordBook(common.recordbook_path, common.recordbook_checksum_file_path)
+    device_recordbook = common.RecordBook(
+        destination_metadata_dir / common.recordbook_file_name,
+        destination_metadata_dir / "checksum.txt",
     )
-    recordbook_checksum_file.write(out)
-    recordbook_checksum_file.close()
-    pathlib.Path(metadata_dir / "checksum.txt").write_text(
-        out.split(" ", 1)[0] + " " + str(metadata_dir / "recordbook.txt")
-    )
+    common.validate_and_recover_recordbooks(source_recordbook, device_recordbook, first_time_ok=True)
+    source_recordbook.records.add(record)
+    source_recordbook.merge(device_recordbook)
+    source_recordbook.write()
+    device_recordbook.write()
     os.sync()
     if original_source != source:
         # the original and the new source are different when a directory was tarred
@@ -149,42 +142,6 @@ def file_not_exists_in_recordbook(
                 f"Another file was already stored with that name{record.source=}\n{record.destination=}\n{record.file_name=}"
             )
         record_no += 1
-
-
-def sync_recordbooks(bkp_dir: pathlib.Path):
-    bkp_dir.mkdir(exist_ok=True, parents=True)
-    dest_recordbook_path = bkp_dir / common.recordbook_file_name
-    dest_recordbook_checksum_path = bkp_dir / "checksum.txt"
-    if not common.recordbook_path.exists() and not dest_recordbook_path.exists():
-        return  # Nothing to sync since neither exists
-    elif not common.recordbook_path.exists() and dest_recordbook_path.exists():
-        print("A record book exists on destination but not on origin")
-        menu = common.TerminalMenu(
-            "What would you like to be done?",
-            {
-                f"Copy the definition on {dest_recordbook_path} back to {common.recordbook_path}?": (
-                    common.copy_recordbook_from_to(
-                        dest_recordbook_path,
-                        dest_recordbook_checksum_path,
-                        common.recordbook_path,
-                        common.recordbook_checksum_file_path,
-                    )
-                )
-            },
-        )
-        menu.show()
-    elif not dest_recordbook_path.exists():
-        common.check_recordbook_md5(common.recordbook_checksum_file_path)
-        shutil.copy(common.recordbook_path, dest_recordbook_path)
-    else:
-        if (
-            dest_recordbook_checksum_path.read_text().split()[0]
-            != common.recordbook_checksum_file_path.read_text().split()[0]
-        ):
-            print("Recordbooks checksum on source and destination differ.")
-            common.decide_recordbooks(
-                dest_recordbook_path, dest_recordbook_checksum_path
-            )
 
 
 def tar_directory(path: pathlib.Path) -> pathlib.Path:

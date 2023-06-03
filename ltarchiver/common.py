@@ -96,7 +96,8 @@ class TerminalMenu:
 class Record:
     timestamp: datetime.datetime
     source: pathlib.Path
-    destination: str
+    destination_uuid: str
+    destination: pathlib.Path
     file_name: str
     checksum: str
     ecc_checksum: str
@@ -104,7 +105,7 @@ class Record:
     eccsize: int = eccsize
     checksum_algorithm: str = "md5"
     deleted: bool = False
-    version: int = 1
+    version: int = 2
 
     def write(self, recordbook: pathlib.Path = recordbook_path):
         with recordbook.open("at") as f:
@@ -114,6 +115,7 @@ class Record:
             f.write(f"File-Name: {self.file_name}\n")
             f.write(f"Source: {self.source.resolve()}\n")
             f.write(f"Destination: {self.destination}\n")
+            f.write(f"Destination-UUID: {self.destination_uuid}\n")
             f.write(f"Bytes-per-chunk: {self.chunksize}\n")
             f.write(f"EC-bytes-per-chunk: {self.eccsize}\n")
             f.write(f"Timestamp: {datetime.datetime.now().isoformat()}\n")
@@ -123,7 +125,7 @@ class Record:
 
     def get_validation(self) -> Validation:
         """True if file exists and checksum matches"""
-        root = get_root_from_uuid(self.destination)
+        root = get_root_from_uuid(self.destination_uuid)
         path = self.file_path(root)
         if not path.exists():
             return Validation.DOESNT_EXIST
@@ -140,13 +142,13 @@ class Record:
         return Validation.VALID
 
     def file_path(self, root: pathlib.Path):
-        return root / self.file_name
+        return root / self.destination
 
     def ecc_file_path(self, root: pathlib.Path) -> pathlib.Path:
         return root / METADATA_DIR_NAME / ecc_dir_name / self.checksum
 
     def __str__(self):
-        return f"Record of {self.file_name} stored on {self.destination}"
+        return f"Record of {self.file_name} stored on {self.destination_uuid}"
 
 
 def error(msg: str):
@@ -212,56 +214,11 @@ def file_ok(path: pathlib.Path, source=True) -> None:
                 f"File {path} is not writable", FileValidation.NO_WRITE_PERMISSION_FILE
             )
 
-
-def copy_recordbook_from_to(
-    from_file: pathlib.Path,
-    from_checksum: pathlib.Path,
-    to_file: pathlib.Path,
-    to_checksum: pathlib.Path,
-):
-    def copy():
-        check_recordbook_md5(from_checksum)
-        shutil.copy(from_file, to_file)
-        shutil.copy(from_checksum, to_checksum)
-
-    return copy
-
-
-def decide_recordbooks(
-    destination_recordbook_path: pathlib.Path,
-    destination_recordbook_checksum_path: pathlib.Path,
-):
-    subprocess.call(
-        shlex.split(f"diff {recordbook_path} {destination_recordbook_path}")
-    )
-    menu = TerminalMenu(
-        "What should be done?",
-        {
-            f"Overwrite the contents of {recordbook_path} with {destination_recordbook_path}": (
-                copy_recordbook_from_to(
-                    destination_recordbook_path,
-                    destination_recordbook_checksum_path,
-                    recordbook_path,
-                    recordbook_checksum_file_path,
-                )
-            ),
-            f"Overwrite the contents of {destination_recordbook_path} with {recordbook_path}": (
-                copy_recordbook_from_to(
-                    recordbook_path,
-                    recordbook_checksum_file_path,
-                    destination_recordbook_path,
-                    destination_recordbook_checksum_path,
-                )
-            ),
-        },
-    )
-    menu.show()
-
-
 def get_records(recordbook_path: pathlib.Path) -> typing.Iterable[Record]:
     recordbook = recordbook_path.open("r")
     source = None
     destination = None
+    destination_uuid = None
     file_name = None
     deleted = None
     version = None
@@ -282,6 +239,7 @@ def get_records(recordbook_path: pathlib.Path) -> typing.Iterable[Record]:
                 yield Record(
                     source=pathlib.Path(source),
                     destination=destination,
+                    destination_uuid=destination_uuid,
                     file_name=file_name,
                     deleted=deleted,
                     version=version,
@@ -297,7 +255,9 @@ def get_records(recordbook_path: pathlib.Path) -> typing.Iterable[Record]:
         elif parts[0] == "Source:":
             source = parts[1]
         elif parts[0] == "Destination:":
-            destination = parts[1]
+            destination = pathlib.Path(parts[1])
+        elif parts[0] == "Destination-UUID:":
+            destination_uuid = parts[1]
         elif parts[0] == "Checksum:":
             checksum = parts[1]
         elif parts[0] == "File-Name:":
@@ -320,7 +280,8 @@ def get_records(recordbook_path: pathlib.Path) -> typing.Iterable[Record]:
     else:
         yield Record(
             source=pathlib.Path(source),
-            destination=destination,
+            destination=pathlib.Path(destination),
+            destination_uuid=destination_uuid,
             file_name=file_name,
             deleted=deleted,
             version=version,
@@ -427,7 +388,10 @@ def record_of_file(
 class RecordBook:
     def __init__(self, path: pathlib.Path, checksum_file_path: pathlib.Path):
         self.path = path
-        self.records: typing.Set[Record] = set(get_records(path))
+        try:
+            self.records: typing.Set[Record] = set(get_records(path))
+        except FileNotFoundError:
+            self.records: typing.Set[Record] = set()
         self.checksum_file_path = checksum_file_path
         self.valid = True
         self.invalid_reason: Validation = Validation.VALID
