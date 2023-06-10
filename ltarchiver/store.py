@@ -11,15 +11,21 @@ import yesno
 from ltarchiver import common
 
 
-def store(source: pathlib.Path, destination: pathlib.Path, non_interactive: bool):
+def store(
+    source: pathlib.Path,
+    destination: pathlib.Path,
+    non_interactive: bool,
+    use_dd: bool = False,
+):
     common.recordbook_dir.mkdir(parents=True, exist_ok=True)
     if source == destination:
         raise common.LTAError("Source and destination are the same.")
     dest_uuid, dest_root = common.get_device_uuid_and_root_from_path(destination)
+    original_destination = destination
     if not common.DEBUG:
         destination = dest_root
-    metadata_dir = destination / common.METADATA_DIR_NAME
     common.file_ok(destination, False)
+    metadata_dir = destination / common.METADATA_DIR_NAME
     sync_recordbooks(metadata_dir)
     try:
         common.file_ok(source)
@@ -36,7 +42,9 @@ def store(source: pathlib.Path, destination: pathlib.Path, non_interactive: bool
                 raise common.LTAError("Cannot archive an uncompressed directory.")
         else:
             raise
-
+    destination_dir = original_destination.relative_to(
+        dest_root
+    )  # only used if use_dd is true
     source_file_name = source.name
     print(f"Backup of: {source}\nTo: ", destination)
     if not non_interactive:
@@ -50,7 +58,10 @@ def store(source: pathlib.Path, destination: pathlib.Path, non_interactive: bool
         print("Checksum calculated", datetime.datetime.now())
     except subprocess.SubprocessError as err:
         raise common.LTAError(f"Error calculating the md5 of source: {err}") from err
-    destination_file_path = destination / source_file_name
+    if use_dd:
+        destination_file_path = destination / destination_dir / source_file_name
+    else:
+        destination_file_path = destination / source_file_name
     try:
         file_not_exists_in_recordbook(md5, source_file_name, destination_file_path)
     except FileNotFoundError:
@@ -83,6 +94,7 @@ def store(source: pathlib.Path, destination: pathlib.Path, non_interactive: bool
         destination=dest_uuid,
         checksum=md5,
         ecc_checksum=common.get_file_checksum(ecc_file_path),
+        destination_directory=destination_dir,
     )
     record.write(common.RECORD_PATH)
     try:
@@ -152,6 +164,7 @@ def file_not_exists_in_recordbook(
 
 
 def sync_recordbooks(bkp_dir: pathlib.Path):
+    # todo can be dramatically simplified by using common.validate_and_recover_recordbooks
     bkp_dir.mkdir(exist_ok=True, parents=True)
     dest_recordbook_path = bkp_dir / common.recordbook_file_name
     dest_recordbook_checksum_path = bkp_dir / "checksum.txt"
@@ -197,12 +210,19 @@ def tar_directory(path: pathlib.Path) -> pathlib.Path:
 
 def get_option_parser():
     parser = optparse.OptionParser(
-        "usage: %prog [options] <source_file>... <destination_directory>"
+        "usage: %prog [options] <source_file>... <destination_mount_point>"
     )
     parser.add_option(
         "--non-interactive",
         action="store_true",
         help="disable most confirmation dialogs",
+    )
+    parser.add_option(
+        "-d",
+        "--use-destination-directory",
+        action="store_true",
+        help="use in case you want the file to be stored inside a directory different from the root of"
+        " <destination_mount_point>",
     )
     return parser
 
@@ -217,7 +237,12 @@ def run():
     sources = {pathlib.Path(source).resolve() for source in args[:-1]}
     for source in sources:
         try:
-            store(source, destination, options.non_interactive or common.DEBUG)
+            store(
+                source,
+                destination,
+                options.non_interactive or common.DEBUG,
+                options.use_destination_directory,
+            )
         except common.LTAError as err_:
             common.error(err_.args[0])
 

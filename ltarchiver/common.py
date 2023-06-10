@@ -96,7 +96,7 @@ class TerminalMenu:
 class Record:
     timestamp: datetime.datetime
     source: pathlib.Path
-    destination: str # device uuid
+    destination: str  # device uuid
     file_name: str
     checksum: str
     ecc_checksum: str
@@ -298,7 +298,7 @@ def get_records(recordbook_path: pathlib.Path) -> typing.Iterable[Record]:
                     checksum=checksum,
                     checksum_algorithm=checksum_alg,
                     ecc_checksum=ecc_checksum,
-                    destination_directory=destination_directory
+                    destination_directory=destination_directory,
                 )
         elif parts[0] == "Deleted:":
             deleted = parts[1] == "true"
@@ -323,7 +323,7 @@ def get_records(recordbook_path: pathlib.Path) -> typing.Iterable[Record]:
         elif parts[0] == "Version:":
             version = int(parts[1])
         elif parts[0] == "Destination-Directory:":
-            version = pathlib.Path(parts[1])
+            destination_directory = pathlib.Path(parts[1])
     recordbook.close()
     if first_item:
         return []
@@ -340,7 +340,7 @@ def get_records(recordbook_path: pathlib.Path) -> typing.Iterable[Record]:
             checksum=checksum,
             checksum_algorithm=checksum_alg,
             ecc_checksum=ecc_checksum,
-            destination_directory=destination_directory
+            destination_directory=destination_directory,
         )
 
 
@@ -365,7 +365,9 @@ def mark_record_as_deleted(record_idx: int):
         record.write()
 
 
-def get_device_uuid_and_root_from_path(path: pathlib.Path) -> (str, pathlib.Path):
+def get_device_uuid_and_root_from_path(
+    path: pathlib.Path,
+) -> typing.Tuple[str, pathlib.Path]:
     devices_to_uuids = {}
     for line in subprocess.check_output(
         ["ls", "-l", "/dev/disk/by-uuid"], encoding="utf-8"
