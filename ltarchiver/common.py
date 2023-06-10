@@ -96,7 +96,7 @@ class TerminalMenu:
 class Record:
     timestamp: datetime.datetime
     source: pathlib.Path
-    destination: str
+    destination: str # device uuid
     file_name: str
     checksum: str
     ecc_checksum: str
@@ -104,7 +104,8 @@ class Record:
     eccsize: int = eccsize
     checksum_algorithm: str = "md5"
     deleted: bool = False
-    version: int = 1
+    version: int = 2
+    destination_directory: typing.Optional[pathlib.Path] = None
 
     def write(self, recordbook: pathlib.Path = recordbook_path):
         with recordbook.open("at") as f:
@@ -114,6 +115,7 @@ class Record:
             f.write(f"File-Name: {self.file_name}\n")
             f.write(f"Source: {self.source.resolve()}\n")
             f.write(f"Destination: {self.destination}\n")
+            f.write(f"Destination-Directory: {self.destination}\n")
             f.write(f"Bytes-per-chunk: {self.chunksize}\n")
             f.write(f"EC-bytes-per-chunk: {self.eccsize}\n")
             f.write(f"Timestamp: {datetime.datetime.now().isoformat()}\n")
@@ -140,7 +142,10 @@ class Record:
         return Validation.VALID
 
     def file_path(self, root: pathlib.Path):
-        return root / self.file_name
+        if self.destination_directory is None:
+            return root / self.file_name
+        else:
+            return root / self.destination_directory / self.file_name
 
     def ecc_file_path(self, root: pathlib.Path) -> pathlib.Path:
         return root / METADATA_DIR_NAME / ecc_dir_name / self.checksum
@@ -220,6 +225,7 @@ def copy_recordbook_from_to(
     to_checksum: pathlib.Path,
 ):
     def copy():
+        # todo a recordbook checksum can't "just be copied" 'cause it will point to the old file it refers to
         check_recordbook_md5(from_checksum)
         shutil.copy(from_file, to_file)
         shutil.copy(from_checksum, to_checksum)
@@ -272,6 +278,7 @@ def get_records(recordbook_path: pathlib.Path) -> typing.Iterable[Record]:
     checksum_alg = None
     first_item = True
     ecc_checksum = None
+    destination_directory = None
     for line in recordbook:
         line = line.strip()
         parts = line.split(" ")
@@ -291,6 +298,7 @@ def get_records(recordbook_path: pathlib.Path) -> typing.Iterable[Record]:
                     checksum=checksum,
                     checksum_algorithm=checksum_alg,
                     ecc_checksum=ecc_checksum,
+                    destination_directory=destination_directory
                 )
         elif parts[0] == "Deleted:":
             deleted = parts[1] == "true"
@@ -314,6 +322,8 @@ def get_records(recordbook_path: pathlib.Path) -> typing.Iterable[Record]:
             ecc_checksum = parts[1]
         elif parts[0] == "Version:":
             version = int(parts[1])
+        elif parts[0] == "Destination-Directory:":
+            version = pathlib.Path(parts[1])
     recordbook.close()
     if first_item:
         return []
@@ -330,6 +340,7 @@ def get_records(recordbook_path: pathlib.Path) -> typing.Iterable[Record]:
             checksum=checksum,
             checksum_algorithm=checksum_alg,
             ecc_checksum=ecc_checksum,
+            destination_directory=destination_directory
         )
 
 
@@ -497,8 +508,10 @@ def validate_and_recover_recordbooks(
     elif not home_recordbook.valid and not device_recordbook.valid:
 
         def overwrite_checksums():
-            home_recordbook.write()
-            device_recordbook.write()
+            if home_recordbook.invalid_reason != Validation.DOESNT_EXIST:
+                home_recordbook.write()
+            if device_recordbook.invalid_reason != Validation.DOESNT_EXIST:
+                device_recordbook.write()
 
         if (
             home_recordbook.invalid_reason == Validation.DOESNT_EXIST
@@ -510,7 +523,6 @@ def validate_and_recover_recordbooks(
             else:
                 print("Assuming this is the first time you are running ltarchiver.")
         else:
-            # todo recordbooks can have different reasons for being invalid
             TerminalMenu(
                 f"Neither the home recordbook {home_recordbook.path}"
                 f"\nnor the device recordbook {device_recordbook}"
