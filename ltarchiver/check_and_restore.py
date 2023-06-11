@@ -73,22 +73,20 @@ def restore(backup_file_path: pathlib.Path, destination_path: pathlib.Path):
     local_record = record_of_file(
         recordbook_path, backup_file_checksum, backup_file_path
     )
-    record_in_local = local_record is not None
     recordbook_backup_path = metadata_dir / recordbook_file_name
     backup_record = record_of_file(
         recordbook_backup_path, backup_file_checksum, backup_file_path
     )
-    record_in_backup = backup_record is not None
 
-    if record_in_local:
+    if local_record:
         if local_record_is_valid:
             record = local_record
-            if not record_in_backup:
+            if not backup_record:
                 try_copy_recordbook(recordbook_path, recordbook_backup_path)
             else:
                 pass  # Nothing to do since backup already has a copy of the record
         else:
-            if record_in_backup:
+            if backup_record:
                 if backup_record_is_valid:
                     record = backup_record
                     try_copy_recordbook(recordbook_backup_path, recordbook_path)
@@ -103,7 +101,7 @@ def restore(backup_file_path: pathlib.Path, destination_path: pathlib.Path):
                     " abort or Enter to try continuing with the restoration."
                 )
     else:
-        if record_in_backup:
+        if backup_record:
             if backup_record_is_valid:
                 record = backup_record
                 try_copy_recordbook(recordbook_backup_path, recordbook_path)
