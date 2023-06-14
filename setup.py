@@ -13,7 +13,7 @@ with open("README.md", "r") as f:
 
 setup(
     name="ltarchiver",
-    version="0.1",
+    version="0.2",
     author="Marcelo Lacerda",
     author_email="marceloslacerda@gmail.com",
     description="Long term archiving program",
