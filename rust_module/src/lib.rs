@@ -10,12 +10,6 @@ use reed_solomon::Encoder;
 use reed_solomon::Decoder;
 
 
-/// Formats the sum of two numbers as string.
-#[pyfunction]
-fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
-    Ok((a + b).to_string())
-}
-
 #[pyfunction]
 fn encode_file(
     source_file_path: String,
@@ -27,9 +21,10 @@ fn encode_file(
     let enc = Encoder::new(ecc_len);
     println!("Starting the encoding");
     let mut buffer = vec![0; chunk_size];
-    let mut reader = BufReader::new(fs::File::open(source_file_path).unwrap());
-    let mut dest_stream = BufWriter::new(fs::File::create(destination_file_path).unwrap());
-    let mut ecc_stream = BufWriter::new(fs::File::create(ecc_file_path).unwrap());
+    let source_file = fs::File::open(source_file_path).unwrap();
+    let mut reader = BufReader::new(source_file);
+    let mut dest_stream = fs::File::create(destination_file_path).unwrap();
+    let mut ecc_stream = fs::File::create(ecc_file_path).unwrap();
     while let Ok(size) = reader.read(&mut buffer) {
         if size == 0 {
             break;
@@ -41,6 +36,8 @@ fn encode_file(
     }
     dest_stream.flush().unwrap();
     ecc_stream.flush().unwrap();
+    dest_stream.sync_all().unwrap();
+    
     println!("Done");
 }
 
@@ -48,8 +45,8 @@ fn encode_file(
 fn decode_file(
     backup_file_path: String,
     destination_file_path: String,
-    new_ecc_file_path: String,
     ecc_file_path: String,
+    new_ecc_file_path: String,
     chunk_size: usize,
     ecc_len: usize
 ){
@@ -57,14 +54,18 @@ fn decode_file(
     let mut backup_buffer = vec![0; chunk_size];
     let mut ecc_buffer = vec![0; ecc_len];
     let mut whole_buffer: Vec<u8> = vec![0; chunk_size + ecc_len];
-    let mut reader = BufReader::new(fs::File::open(backup_file_path).unwrap());
-    let mut ecc_stream = BufReader::new(fs::File::open(ecc_file_path).unwrap());
+    let mut reader = fs::File::open(backup_file_path).unwrap();
+    let mut ecc_stream = fs::File::open(ecc_file_path).unwrap();
     let mut dest_stream = BufWriter::new(fs::File::create(destination_file_path).unwrap());
     let mut new_ecc_stream = BufWriter::new(fs::File::create(new_ecc_file_path).unwrap());
-    println!("Starting the recovering process");
+    let mut bytes_processed = 0;
+    let mut iteration: usize = 0;
+    println!("Starting the recovery process");
     loop {
         match reader.read(&mut backup_buffer) {
             Ok(size) => {
+                iteration += 1;
+                bytes_processed += size;
                 if size == 0 {
                     break;
                 } else {
@@ -82,7 +83,9 @@ fn decode_file(
                                         new_ecc_stream.write(recovered.ecc()).unwrap();
                                     }
                                     Err(err) => {
-                                        eprint!("Could not correct the file due to an error {:?}", err);
+                                        eprintln!("Could not correct the file due to an error {:?}", err);
+                                        eprintln!("Error at Bytes {:?} Last Read {:?} Last Ecc {:?}", bytes_processed, size, ecc_len);
+                                        eprintln!("Iteration {:?} Whole buffer {:?}", iteration, whole_buffer);
                                         break;
                                     }
                                 }
@@ -111,7 +114,6 @@ fn decode_file(
 /// A Python module implemented in Rust.
 #[pymodule]
 fn rust_module(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
     m.add_function(wrap_pyfunction!(encode_file, m)?)?;
     m.add_function(wrap_pyfunction!(decode_file, m)?)?;
     Ok(())
